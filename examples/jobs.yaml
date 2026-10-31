@@ -1,0 +1,24 @@
+jobs:
+  - id: home-files
+    name: Home Files
+    source_type: filesystem
+    source_path: /home/user
+    destination: /var/backups/home-files
+    notifiers:
+      - type: email
+        to: admin@example.com
+        on: [success, failure]
+      - type: desktop
+        on: [success, failure]
+
+  - id: app-db
+    name: App Database
+    source_type: postgres
+    source_path: appdb
+    destination: /var/backups/app-db
+    notifiers:
+      - type: email
+        to: admin@example.com
+        on: [failure]
+      - type: desktop
+        on: [success, failure]

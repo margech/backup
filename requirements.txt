@@ -1,1 +1,42 @@
-PyYAML>=6.0
+# Beispiel-Jobdatei mit Ausschlüssen pro Quelle.
+# source_excludes und source_includes sind für Dateisystem-Quellen relevant.
+
+jobs:
+  - id: home-files
+    name: Home Files
+    source_type: filesystem
+    source_path: /home/user
+    destination: /var/backups/home-files
+    source_excludes:
+      - .cache
+      - node_modules
+      - tmp/**
+      - Downloads/temp/**
+    source_includes:
+      - "*.txt"
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 12
+    notifiers:
+      - type: email
+        to: admin@example.com
+        on: [success, failure]
+      - type: desktop
+        on: [success, failure]
+
+  - id: app-db
+    name: App Database
+    source_type: postgres
+    source_path: appdb
+    destination: /var/backups/app-db
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 12
+    notifiers:
+      - type: email
+        to: admin@example.com
+        on: [failure]
+      - type: desktop
+        on: [success, failure]

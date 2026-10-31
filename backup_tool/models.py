@@ -27,6 +27,7 @@ class JobConfig:
     remote_user: Optional[str] = None
     source_excludes: list[str] = field(default_factory=list)
     source_includes: list[str] = field(default_factory=list)
+    retention: dict[str, int] = field(default_factory=lambda: {"daily": 7, "weekly": 4, "monthly": 12})
 
 
 @dataclass

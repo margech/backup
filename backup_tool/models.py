@@ -25,6 +25,8 @@ class JobConfig:
     transport: str = "local"
     remote_host: Optional[str] = None
     remote_user: Optional[str] = None
+    source_excludes: list[str] = field(default_factory=list)
+    source_includes: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -1,102 +1,69 @@
 from __future__ import annotations
 
 import os
-import shutil
+import smtplib
 import subprocess
-from abc import ABC, abstractmethod
-from datetime import datetime
-from pathlib import Path
-
-from .models import JobConfig
+from email.message import EmailMessage
 
 
-class SourceAdapter(ABC):
-    """Base class for all source adapters."""
+class EmailNotifier:
+    """Send notification emails."""
 
-    @abstractmethod
-    def create_snapshot(self, job: JobConfig, snapshot_dir: Path) -> dict:
-        """Create a snapshot for the given job and return metadata."""
+    def __init__(self, config: dict):
+        self.config = config
 
+    def send(self, event: dict) -> None:
+        to_address = self.config.get("to")
+        if not to_address:
+            return
 
-class FilesystemSource(SourceAdapter):
-    """Back up a directory tree using rsync."""
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        if not smtp_host:
+            return
 
-    def create_snapshot(self, job: JobConfig, snapshot_dir: Path) -> dict:
-        source_path = Path(job.source_path)
-        if not source_path.exists():
-            raise FileNotFoundError(f"Source does not exist: {source_path}")
+        msg = EmailMessage()
+        msg["Subject"] = self.config.get(
+            "subject") or f"Backup event: {event.get('job_id', 'unknown')}"
+        msg["From"] = os.getenv("SMTP_FROM", smtp_user or "backup@example.com")
+        msg["To"] = to_address
+        msg.set_content(event.get("message", "Backup event"))
 
-        rsync_bin = shutil.which("rsync")
-        if not rsync_bin:
-            raise FileNotFoundError("rsync is not installed or not in PATH")
-
-        cmd = [rsync_bin, "-a", "--delete", f"{source_path.as_posix()}/", str(snapshot_dir)]
-        completed = subprocess.run(cmd, capture_output=True, text=True)
-        if completed.returncode != 0:
-            raise RuntimeError(completed.stderr or completed.stdout or "rsync failed")
-
-        # Count files and directories for metadata.
-        file_count = sum(1 for _ in snapshot_dir.rglob("*") if _.is_file())
-        return {
-            "source_type": "filesystem",
-            "file_count": file_count,
-            "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-        }
-
-
-class SqlDumpSource(SourceAdapter):
-    """Create a dump for common relational database tools."""
-
-    def create_snapshot(self, job: JobConfig, snapshot_dir: Path) -> dict:
-        name = job.source_path or "dump"
-        dump_path = snapshot_dir / f"{name}.sql"
-        dump_path.parent.mkdir(parents=True, exist_ok=True)
-
-        source_type = job.source_type.lower()
-        if source_type == "postgres":
-            tool = shutil.which("pg_dump")
-            if not tool:
-                raise FileNotFoundError("pg_dump is not installed or not in PATH")
-            cmd = [tool, "--file", str(dump_path), job.source_path]
-        elif source_type == "mysql":
-            tool = shutil.which("mysqldump")
-            if not tool:
-                raise FileNotFoundError("mysqldump is not installed or not in PATH")
-            cmd = [tool, job.source_path, "--result-file", str(dump_path)]
-        elif source_type == "sqlite":
-            tool = shutil.which("sqlite3")
-            if not tool:
-                raise FileNotFoundError("sqlite3 is not installed or not in PATH")
-            cmd = [tool, job.source_path, ".backup", str(dump_path)]
-        else:
-            raise ValueError(f"Unsupported SQL source type: {job.source_type}")
-
-        completed = subprocess.run(cmd, capture_output=True, text=True)
-        if completed.returncode != 0:
-            raise RuntimeError(completed.stderr or completed.stdout or "SQL dump failed")
-
-        return {
-            "source_type": job.source_type,
-            "dump_path": str(dump_path),
-            "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-        }
+        try:
+            with smtplib.SMTP(smtp_host, 587) as server:
+                if smtp_user and smtp_password:
+                    server.starttls()
+                    server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+        except Exception:
+            pass
 
 
-class PCloudSource(SourceAdapter):
-    """Stub for future pCloud integration. This is intentionally explicit."""
+class DesktopNotifier:
+    """Send a local desktop notification if a graphical session is available."""
 
-    def create_snapshot(self, job: JobConfig, snapshot_dir: Path) -> dict:
-        raise NotImplementedError(
-            "pCloud support is not implemented yet. Use filesystem/SQL adapters or add a dedicated cloud adapter."
-        )
+    def __init__(self, config: dict):
+        self.config = config
+
+    def send(self, event: dict) -> None:
+        if not os.getenv("DISPLAY"):
+            return
+
+        notify_bin = subprocess.run(
+            ["which", "notify-send"], capture_output=True, text=True)
+        if notify_bin.returncode != 0:
+            return
+
+        title = self.config.get("title") or "Backup status"
+        message = event.get("message", "Backup finished")
+        subprocess.run(["notify-send", title, message], check=False)
 
 
-def create_source(job: JobConfig) -> SourceAdapter:
-    source_type = (job.source_type or "").lower()
-    if source_type == "filesystem":
-        return FilesystemSource()
-    if source_type in {"postgres", "mysql", "sqlite"}:
-        return SqlDumpSource()
-    if source_type == "pcloud":
-        return PCloudSource()
-    raise ValueError(f"Unsupported source type: {job.source_type}")
+def build_notifier(notifier_config: dict):
+    notifier_type = (notifier_config.get("type") or "").lower()
+    if notifier_type == "email":
+        return EmailNotifier(notifier_config)
+    if notifier_type == "desktop":
+        return DesktopNotifier(notifier_config)
+    return None

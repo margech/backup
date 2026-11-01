@@ -1,33 +1,6 @@
-# backup v0.3
+# Beispiel-Jobdatei für v0.3
+# source_excludes und source_includes gelten für lokale oder SSH-Dateisystem-Quellen.
 
-Eine erweiterte Version mit Remote-Transport, Locking und pCloud-vorbereiteter Architektur.
-
-## Funktionen
-
-- Dateisystem-Backups mit rsync
-- Remote-Quellen per SSH
-- SQL-Dump-Adapter für PostgreSQL/MySQL/SQLite
-- Include-/Exclude-Muster pro Quelle
-- Retention-Policy für daily/weekly/monthly
-- Restore-Funktion
-- Job-Locking, damit keine zwei Backups parallel laufen
-- pCloud-Backend als rclone-basierter Adapter
-- pluggable Notifier (E-Mail, Desktop)
-
-## Architektur
-
-- backup_tool/models.py: Job-, Notifier- und Ergebnis-Modelle
-- backup_tool/sources.py: Filesystem-, SQL- und pCloud-Adapter
-- backup_tool/runner.py: Backup-Lauf mit Locking und Notifications
-- backup_tool/retention.py: Retention-Policy
-- backup_tool/restore.py: Restore-Funktion
-- backup_tool/lock.py: Parallelitäts-Schutz
-- backup_tool/scheduler.py: einfacher Job-Scheduler
-- backup_tool/notifiers.py: E-Mail/Desktop-Notifications
-
-## Beispiel-Konfiguration
-
-```yaml
 jobs:
   - id: home-files
     name: Home Files
@@ -70,47 +43,9 @@ jobs:
   - id: pcloud-docs
     name: pCloud Documents
     source_type: pcloud
-    source_path: /
     cloud_remote: pcloud
     cloud_path: /Documents
     retention:
       daily: 7
       weekly: 4
       monthly: 12
-```
-
-## Hinweise
-
-- Für lokale Dateisystem-Backups muss `rsync` installiert sein.
-- Für SSH-Quellen muss SSH auf dem Zielhost erreichbar sein und der Benutzer Zugang haben.
-- Für pCloud muss `rclone` installiert sein und ein pCloud-Remote unter dem Namen `pcloud` konfiguriert sein.
-- Für SQL-Dumps müssen die DB-Tools installiert sein (`pg_dump`, `mysqldump`, `sqlite3`).
-- Der Lock verhindert, dass zwei Backups gleichzeitig denselben Backup-Store nutzen.
-
-## Nutzung
-
-Installieren:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Jobs anzeigen:
-
-```bash
-python -m backup_tool.main list --config examples/jobs.yaml
-```
-
-Backup ausführen:
-
-```bash
-python -m backup_tool.main run --config examples/jobs.yaml --job home-files --repo-root /var/backups/store
-```
-
-Snapshot wiederherstellen:
-
-```bash
-python -m backup_tool.main restore --snapshot /var/backups/store/snapshots/home-files/20261031_120000 --target /tmp/restore
-```

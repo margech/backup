@@ -12,6 +12,9 @@ dependencies = [
   "PyYAML>=6.0",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
 [project.scripts]
 backup-tool = "backup_tool.main:main"
 

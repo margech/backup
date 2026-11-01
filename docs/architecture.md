@@ -50,6 +50,10 @@ Die folgenden Source-Typen sind vorgesehen:
 - sqlite
 - pcloud
 
+Source-Adapter liegen im Paket `backup_tool/sources/`, jeweils in einem eigenen Modul. `base.py` definiert den gemeinsamen Adapter-Vertrag; `filesystem.py`, `sql_dump.py` und `pcloud.py` enthalten die Implementierungen. Die Registry ordnet jeden `source_type` sowohl einem Modul als auch einem Klassennamen zu. `create_source` lädt das Modul und instanziiert die registrierte Klasse.
+
+Für eine neue Quelle werden ein Adapter-Modul, ein Registry-Eintrag und passende Tests ergänzt.
+
 ## Sicherheits- und Betriebsaspekte
 
 - Locking gegen parallele Backups

@@ -1,0 +1,111 @@
+import json
+
+from backup_tool.models import JobConfig, NotifierConfig
+from backup_tool.runner import BackupRunner, load_jobs_from_config
+
+
+def test_load_jobs_from_config_applies_options_and_defaults(tmp_path):
+    config_path = tmp_path / "jobs.yaml"
+    config_path.write_text(
+        """
+jobs:
+  - id: documents
+    source_path: /home/user/Documents
+    excludes: [cache]
+    includes: ['*.txt']
+    retention:
+      daily: '3'
+    notifiers:
+      - type: desktop
+        on: [failure]
+""",
+        encoding="utf-8",
+    )
+
+    jobs = load_jobs_from_config(config_path)
+
+    assert len(jobs) == 1
+    job = jobs[0]
+    assert job.id == "documents"
+    assert job.name == "documents"
+    assert job.source_type == "filesystem"
+    assert job.destination == "."
+    assert job.source_excludes == ["cache"]
+    assert job.source_includes == ["*.txt"]
+    assert job.retention == {"daily": 3, "weekly": 4, "monthly": 12}
+    assert job.notifiers == [NotifierConfig(type="desktop", on=["failure"])]
+
+
+def test_run_job_creates_snapshot_manifest_and_dispatches_notification(
+    tmp_path, monkeypatch
+):
+    events = []
+
+    class FakeSource:
+        def create_snapshot(self, job, snapshot_dir):
+            (snapshot_dir / "backup.txt").write_text("contents", encoding="utf-8")
+            return {"file_count": 1}
+
+    class FakeNotifier:
+        def send(self, event):
+            events.append(event)
+
+    monkeypatch.setattr("backup_tool.runner.create_source",
+                        lambda job: FakeSource())
+    monkeypatch.setattr("backup_tool.runner.build_notifier",
+                        lambda config: FakeNotifier())
+
+    job = JobConfig(
+        id="documents",
+        name="Documents",
+        source_type="filesystem",
+        source_path="/unused",
+        destination="/unused",
+        notifiers=[NotifierConfig(type="desktop", on=["success"])],
+    )
+    runner = BackupRunner(tmp_path)
+
+    result = runner.run_job(job)
+
+    assert result.status == "success"
+    snapshot = tmp_path / "snapshots" / job.id / \
+        result.snapshot_path.split("/")[-1]
+    assert snapshot.is_dir()
+    assert (snapshot / "backup.txt").read_text(encoding="utf-8") == "contents"
+    manifest = json.loads(
+        (snapshot / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["job_id"] == job.id
+    assert manifest["metadata"] == {"file_count": 1}
+    assert not (tmp_path / "backup.lock").exists()
+    assert events == [{
+        "job_id": job.id,
+        "job_name": job.name,
+        "status": "success",
+        "message": result.message,
+    }]
+
+
+def test_run_job_failure_removes_temporary_snapshot_and_releases_lock(
+    tmp_path, monkeypatch
+):
+    class FailingSource:
+        def create_snapshot(self, job, snapshot_dir):
+            (snapshot_dir / "partial.txt").write_text("partial", encoding="utf-8")
+            raise RuntimeError("source unavailable")
+
+    monkeypatch.setattr("backup_tool.runner.create_source",
+                        lambda job: FailingSource())
+    job = JobConfig(
+        id="documents",
+        name="Documents",
+        source_type="filesystem",
+        source_path="/unused",
+        destination="/unused",
+    )
+
+    result = BackupRunner(tmp_path).run_job(job)
+
+    assert result.status == "failed"
+    assert result.metadata == {"error": "source unavailable"}
+    assert not list((tmp_path / "snapshots" / job.id).glob("*.tmp"))
+    assert not (tmp_path / "backup.lock").exists()

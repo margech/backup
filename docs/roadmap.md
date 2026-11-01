@@ -19,7 +19,7 @@
 - remote SSH sources
 - lockfile protection
 - pCloud-ready backend
-- robustere Job-Architektur
+- robustere Job-Architektur mit separaten Source-Modulen und Modul-/Klassen-Registry
 
 ## v0.4 (geplant)
 

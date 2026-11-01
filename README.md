@@ -19,7 +19,7 @@ Das Projekt ist als Architektur- und Entwicklungsbasis für ein Time-Machine-äh
 ## Versionsstand
 
 - v0.1: erster MVP mit grundlegendem Backup-Runner
-- v0.2: Snapshot-Engine, Retention, Restore, Scheduler
+- v0.2: Snapshot-Engine, Retention und Restore
 - v0.3: SSH- und pCloud-ready Architektur mit Locking
 
 ## Projektstruktur
@@ -36,12 +36,21 @@ backup/
 │   ├── retention.py
 │   ├── runner.py
 │   ├── scheduler.py
-│   └── sources.py
+│   └── sources/
+│       ├── __init__.py
+│       ├── base.py
+│       ├── filesystem.py
+│       ├── pcloud.py
+│       └── sql_dump.py
 ├── docs/
 │   ├── architecture.md
 │   └── roadmap.md
 ├── examples/
 │   └── jobs.yaml
+├── tests/
+│   ├── test_runner.py
+│   ├── test_sources.py
+│   └── test_storage.py
 ├── pyproject.toml
 ├── README.md
 ├── requirements.txt
@@ -56,11 +65,25 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Quellen erweitern
+
+Jeder Source-Adapter liegt in einem eigenen Modul unter `backup_tool/sources/`. Die Registry in `sources/__init__.py` verknüpft `source_type` mit Moduldatei und Klassenname. Für einen neuen Typ werden daher ein Adapter-Modul, ein Registry-Eintrag und passende Tests ergänzt.
+
 ## Beispiel ausführen
 
 ```bash
 python -m backup_tool.main list --config examples/jobs.yaml
 python -m backup_tool.main run --config examples/jobs.yaml --job home-files --repo-root /var/backups/store
+python -m backup_tool.main restore --config examples/jobs.yaml --snapshot /var/backups/store/snapshots/home-files/20261031_120000 --target /tmp/restore
+```
+
+## Tests
+
+Die Test-Abhängigkeit installieren und die Suite starten:
+
+```bash
+pip install -e ".[test]"
+python -m pytest
 ```
 
 ## Wichtige Hinweise
@@ -69,6 +92,7 @@ python -m backup_tool.main run --config examples/jobs.yaml --job home-files --re
 - Für SQL-Dumps müssen DB-Tools wie `pg_dump`, `mysqldump` oder `sqlite3` installiert sein.
 - Für pCloud muss `rclone` installiert und konfiguriert sein.
 - Die Notifier laufen nur, wenn die Umgebung dafür geeignet ist.
+- Ein integrierter Scheduler ist noch nicht implementiert; geplante Ausführung erfolgt vorerst über systemd oder cron.
 
 ## Nächste Schritte
 

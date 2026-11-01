@@ -1,35 +1,53 @@
 from __future__ import annotations
 
-import os
-from pathlib import Path
+import argparse
+
+from .restore import restore_snapshot
+from .runner import BackupRunner, load_jobs_from_config
 
 
-class BackupLock:
-    """Simple lock to avoid concurrent backup runs for the same repository."""
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Modular backup tool")
+    parser.add_argument("action", choices=[
+                        "run", "list", "restore"], help="Action to execute")
+    parser.add_argument("--config", required=True,
+                        help="Path to the YAML job definition file")
+    parser.add_argument("--job", help="Optional job id to run only one job")
+    parser.add_argument("--repo-root", default="./.backup_store",
+                        help="Directory where snapshots are stored")
+    parser.add_argument("--snapshot", help="Snapshot directory to restore")
+    parser.add_argument("--target", help="Restore target directory")
+    return parser
 
-    def __init__(self, lock_path: str | Path):
-        self.lock_path = Path(lock_path)
 
-    def acquire(self) -> bool:
-        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            file = open(self.lock_path, "x", encoding="utf-8")
-            file.write(str(os.getpid()))
-            file.flush()
-            file.close()
-            return True
-        except FileExistsError:
-            pid_text = self.lock_path.read_text(encoding="utf-8", errors="ignore").strip()
-            if pid_text.isdigit():
-                try:
-                    os.kill(int(pid_text), 0)
-                except OSError:
-                    self.lock_path.unlink(missing_ok=True)
-                    return self.acquire()
-            return False
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    jobs = load_jobs_from_config(args.config)
 
-    def release(self) -> None:
-        try:
-            self.lock_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+    if args.action == "list":
+        for job in jobs:
+            print(f"{job.id}: {job.name} [{job.source_type}]")
+        return
+
+    if args.action == "restore":
+        if not args.snapshot or not args.target:
+            raise SystemExit(
+                "--snapshot and --target are required for restore")
+        restore_snapshot(args.snapshot, args.target)
+        print(f"Restored snapshot {args.snapshot} to {args.target}")
+        return
+
+    runner = BackupRunner(args.repo_root)
+    selected_jobs = jobs if not args.job else [
+        job for job in jobs if job.id == args.job]
+    if not selected_jobs:
+        raise SystemExit(f"No job found matching id: {args.job}")
+
+    for job in selected_jobs:
+        result = runner.run_job(job)
+        print(f"{job.id}: {result.status} -> {result.message}")
+
+
+if __name__ == "__main__":
+    main()

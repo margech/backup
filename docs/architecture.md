@@ -1,0 +1,65 @@
+# Architektur-Entwurf
+
+## Ziel
+
+Das Projekt soll ein modularer, erweiterbarer Backup-Client werden, der mehrere Quelltypen kennt und Snapshot-basierte Historie ohne vollständige Duplikate erzeugt.
+
+## Grundideen
+
+### 1. Job-basierte Architektur
+
+Jeder Backup-Lauf ist ein Job.
+
+Ein Job kapselt:
+- Quelle (Dateisystem, SQL, pCloud)
+- Transport (local, ssh)
+- Ziel-Repository
+- Retention-Policy
+- Benachrichtigungen
+- Include-/Exclude-Muster
+
+### 2. Snapshot-Mechanik
+
+Ein Backup wird zunächst in einem temporären Ordner erzeugt.
+
+Nach erfolgreichem Lauf wird der Ordner als gültiger Snapshot finalisiert. Dadurch bleiben unvollständige Snapshots nicht sichtbar.
+
+### 3. Retention-Policy
+
+Die Policy ist separat definiert und arbeitet mit täglichen, wöchentlichen und monatlichen Zeitschnitten.
+
+### 4. Notifier
+
+Notifikationen sind pluggbar. Es gibt derzeit E-Mail und Desktop-Notification.
+
+### 5. Remote-Transport
+
+Transport wird getrennt von der Quelle behandelt.
+
+- local
+- ssh
+- pCloud/Cloud-Backends (vorbereitet)
+
+## Quellenmodell
+
+Die folgenden Source-Typen sind vorgesehen:
+
+- filesystem
+- postgres
+- mysql
+- sqlite
+- pcloud
+
+## Sicherheits- und Betriebsaspekte
+
+- Locking gegen parallele Backups
+- zentrale Logs / Status
+- keine Token im Git-Repo
+- Secret-Management per Env-Variablen, Secret-File oder Keyring
+
+## Offene Punkte
+
+- echte pCloud-Token-Handling pro Nutzer
+- systemd timer / cron integration
+- multi-user Job-Konfiguration
+- zentralisierte Restore-UI oder CLI

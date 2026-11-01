@@ -7,7 +7,8 @@ Das Projekt ist als Architektur- und Entwicklungsbasis für ein Time-Machine-äh
 ## Überblick
 
 - lokale Dateisystem-Quellen mit rsync
-- Remote-Quellen über SSH
+- SSH-Quellen für entfernte Dateisysteme über rsync
+- SQL-Dumps auch über SSH-Transport
 - SQL-Dump-Quellen (PostgreSQL/MySQL/SQLite)
 - pCloud-vorbereiteter Backend-Adapter über rclone
 - Snapshot-Mechanik mit temporären Ordnern und Finalisierung
@@ -41,6 +42,7 @@ backup/
 │       ├── base.py
 │       ├── filesystem.py
 │       ├── pcloud.py
+│       ├── ssh.py
 │       └── sql_dump.py
 ├── docs/
 │   ├── architecture.md
@@ -67,7 +69,26 @@ pip install -r requirements.txt
 
 ## Quellen erweitern
 
-Jeder Source-Adapter liegt in einem eigenen Modul unter `backup_tool/sources/`. Die Registry in `sources/__init__.py` verknüpft `source_type` mit Moduldatei und Klassenname. Für einen neuen Typ werden daher ein Adapter-Modul, ein Registry-Eintrag und passende Tests ergänzt.
+Jeder Source-Adapter liegt in einem eigenen Modul unter `backup_tool/sources/`. Die Registry in `sources/__init__.py` verknüpft `source_type` mit Moduldatei und Klassenname. Für einen neuen Typ werden daher ein Adapter-Modul, ein Registry-Eintrag und passende Tests ergänzt. Für entfernte Dateisysteme kann `source_type: ssh` mit `remote_host`, optional `remote_user` und dem Remote-`source_path` verwendet werden.
+
+Beispiel für einen SSH-Job:
+
+```yaml
+jobs:
+	- id: remote-files
+		name: Remote Files
+		source_type: ssh
+		source_path: /srv/files
+		transport: ssh
+		remote_host: backup01.example.com
+		remote_user: backupuser
+		source_excludes:
+			- cache/**
+		retention:
+			daily: 7
+			weekly: 4
+			monthly: 12
+```
 
 ## Beispiel ausführen
 
@@ -89,6 +110,7 @@ python -m pytest
 ## Wichtige Hinweise
 
 - Für lokale Dateisystem-Backups wird `rsync` benötigt.
+- Für SSH-Quellen müssen `rsync` und SSH installiert sein; der konfigurierte Host muss erreichbar sein.
 - Für SQL-Dumps müssen DB-Tools wie `pg_dump`, `mysqldump` oder `sqlite3` installiert sein.
 - Für pCloud muss `rclone` installiert und konfiguriert sein.
 - Die Notifier laufen nur, wenn die Umgebung dafür geeignet ist.

@@ -1,10 +1,14 @@
 import pytest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from backup_tool.models import JobConfig
 from backup_tool.sources import SOURCE_REGISTRY, create_source
 from backup_tool.sources.filesystem import FilesystemSource
 from backup_tool.sources.pcloud import PCloudSource
 from backup_tool.sources.sql_dump import SqlDumpSource
+from backup_tool.sources.ssh import SSHSource
 
 
 def make_job(source_type="filesystem", **kwargs):
@@ -22,6 +26,7 @@ def make_job(source_type="filesystem", **kwargs):
     ("source_type", "module_name", "class_name"),
     [
         ("filesystem", "filesystem", "FilesystemSource"),
+        ("ssh", "ssh", "SSHSource"),
         ("postgres", "sql_dump", "SqlDumpSource"),
         ("mysql", "sql_dump", "SqlDumpSource"),
         ("sqlite", "sql_dump", "SqlDumpSource"),
@@ -75,3 +80,36 @@ def test_filesystem_source_requires_remote_host_for_ssh(monkeypatch):
 
     with pytest.raises(ValueError, match="remote_host is required"):
         FilesystemSource()._build_rsync_command(job, "/snapshot")
+
+
+def test_ssh_source_runs_rsync_with_remote_path_and_metadata(tmp_path, monkeypatch):
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    run = Mock(return_value=SimpleNamespace(
+        returncode=0, stderr="", stdout=""))
+    monkeypatch.setattr("backup_tool.sources.filesystem.shutil.which",
+                        lambda name: "/usr/bin/rsync")
+    monkeypatch.setattr("backup_tool.sources.filesystem.subprocess.run", run)
+    job = make_job(
+        "ssh",
+        transport="local",
+        remote_host="backup.example.com",
+        remote_user="backup",
+        source_path="/srv/files",
+    )
+
+    metadata = SSHSource().create_snapshot(job, snapshot_dir)
+
+    command = run.call_args.args[0]
+    assert "-e" in command
+    assert "ssh -o StrictHostKeyChecking=no" in command
+    assert "backup@backup.example.com:/srv/files/" in command
+    assert metadata["source_type"] == "ssh"
+    assert metadata["transport"] == "ssh"
+
+
+def test_ssh_source_requires_remote_host():
+    job = make_job("ssh")
+
+    with pytest.raises(ValueError, match="remote_host is required for SSH source"):
+        SSHSource().create_snapshot(job, Path("/snapshot"))

@@ -40,6 +40,20 @@ jobs:
         to: admin@example.com
         on: [failure]
 
+  - id: remote-files
+    name: Remote Files
+    source_type: ssh
+    source_path: /srv/files
+    transport: ssh
+    remote_host: backup01.example.com
+    remote_user: backupuser
+    source_excludes:
+      - cache/**
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 12
+
   - id: pcloud-docs
     name: pCloud Documents
     source_type: pcloud

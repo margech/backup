@@ -7,6 +7,7 @@ from .base import SourceAdapter
 
 SOURCE_REGISTRY: dict[str, tuple[str, str]] = {
     "filesystem": ("filesystem", "FilesystemSource"),
+    "ssh": ("ssh", "SSHSource"),
     "postgres": ("sql_dump", "SqlDumpSource"),
     "mysql": ("sql_dump", "SqlDumpSource"),
     "sqlite": ("sql_dump", "SqlDumpSource"),

@@ -45,12 +45,15 @@ Transport wird getrennt von der Quelle behandelt.
 Die folgenden Source-Typen sind vorgesehen:
 
 - filesystem
+- ssh (entferntes Dateisystem über rsync/SSH)
 - postgres
 - mysql
 - sqlite
 - pcloud
 
-Source-Adapter liegen im Paket `backup_tool/sources/`, jeweils in einem eigenen Modul. `base.py` definiert den gemeinsamen Adapter-Vertrag; `filesystem.py`, `sql_dump.py` und `pcloud.py` enthalten die Implementierungen. Die Registry ordnet jeden `source_type` sowohl einem Modul als auch einem Klassennamen zu. `create_source` lädt das Modul und instanziiert die registrierte Klasse.
+Source-Adapter liegen im Paket `backup_tool/sources/`, jeweils in einem eigenen Modul. `base.py` definiert den gemeinsamen Adapter-Vertrag; `filesystem.py`, `ssh.py`, `sql_dump.py` und `pcloud.py` enthalten die Implementierungen. Die Registry ordnet jeden `source_type` sowohl einem Modul als auch einem Klassennamen zu. `create_source` lädt das Modul und instanziiert die registrierte Klasse.
+
+`source_type: ssh` sichert ein entferntes Dateisystem über rsync und SSH. Datenbankquellen können weiterhin unabhängig davon mit `transport: ssh` konfiguriert werden.
 
 Für eine neue Quelle werden ein Adapter-Modul, ein Registry-Eintrag und passende Tests ergänzt.
 

@@ -16,7 +16,7 @@
 
 ## v0.3
 
-- remote SSH sources
+- remote SSH sources via a dedicated adapter module
 - lockfile protection
 - pCloud-ready backend
 - robustere Job-Architektur mit separaten Source-Modulen und Modul-/Klassen-Registry

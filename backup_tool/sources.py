@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from .lock import BackupLock
 from .models import BackupResult, JobConfig, NotifierConfig
 from .notifiers import build_notifier
 from .retention import RetentionPolicy
@@ -16,6 +17,7 @@ class BackupRunner:
     def __init__(self, repo_root: str | Path):
         self.repo_root = Path(repo_root)
         self.repo_root.mkdir(parents=True, exist_ok=True)
+        self.lock = BackupLock(self.repo_root / "backup.lock")
 
     def _snapshot_dir_for(self, job: JobConfig) -> Path:
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -29,6 +31,9 @@ class BackupRunner:
         temp_dir.rename(final_dir)
 
     def run_job(self, job: JobConfig) -> BackupResult:
+        if not self.lock.acquire():
+            raise RuntimeError(f"Another backup for {job.id} is already running.")
+
         started = time.time()
         started_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         temp_snapshot_dir = self._snapshot_dir_for(job)
@@ -51,8 +56,7 @@ class BackupRunner:
             }
             (final_snapshot_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-            retention_policy = RetentionPolicy(job.retention)
-            retention_policy.apply(self.repo_root, job.id)
+            RetentionPolicy(job.retention).apply(self.repo_root, job.id)
 
             finished = time.time()
             result = BackupResult(
@@ -88,6 +92,8 @@ class BackupRunner:
                 message=f"Backup failed for {job.name}: {exc}",
                 metadata={"error": str(exc)},
             )
+        finally:
+            self.lock.release()
 
         self._dispatch_notifications(job, result)
         return result
@@ -146,6 +152,9 @@ def load_jobs_from_config(config_path: str | os.PathLike[str]) -> list[JobConfig
                     "weekly": int(retention.get("weekly", 4)),
                     "monthly": int(retention.get("monthly", 12)),
                 },
+                account_id=item.get("account_id"),
+                cloud_remote=item.get("cloud_remote"),
+                cloud_path=item.get("cloud_path"),
             )
         )
     return jobs

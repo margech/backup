@@ -1,51 +1,50 @@
 from __future__ import annotations
 
-import shutil
-from datetime import datetime
+import argparse
 from pathlib import Path
 
+from .runner import BackupRunner, load_jobs_from_config
 
-class RetentionPolicy:
-    """Simple retention policy based on daily/weekly/monthly counts."""
 
-    def __init__(self, config: dict[str, int] | None = None):
-        if config is None:
-            config = {"daily": 7, "weekly": 4, "monthly": 12}
-        self.config = config
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Modular backup tool")
+    parser.add_argument("action", choices=["run", "list", "restore"], help="Action to execute")
+    parser.add_argument("--config", required=True, help="Path to the YAML job definition file")
+    parser.add_argument("--job", help="Optional job id to run only one job")
+    parser.add_argument("--repo-root", default="./.backup_store", help="Directory where snapshots are stored")
+    parser.add_argument("--snapshot", help="Snapshot directory to restore")
+    parser.add_argument("--target", help="Restore target directory")
+    return parser
 
-    def apply(self, repo_root: Path, job_id: str) -> None:
-        snapshot_root = repo_root / "snapshots" / job_id
-        if not snapshot_root.exists():
-            return
 
-        snapshots = sorted(
-            [p for p in snapshot_root.iterdir() if p.is_dir()],
-            key=lambda p: p.name,
-        )
-        if not snapshots:
-            return
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    jobs = load_jobs_from_config(args.config)
 
-        keep = set()
-        daily_count = self.config.get("daily", 0)
-        weekly_count = self.config.get("weekly", 0)
-        monthly_count = self.config.get("monthly", 0)
+    if args.action == "list":
+        for job in jobs:
+            print(f"{job.id}: {job.name} [{job.source_type}]")
+        return
 
-        # Keep newest daily snapshots.
-        keep.update({snapshots[-i].name for i in range(1, daily_count + 1) if i <= len(snapshots)})
+    if args.action == "restore":
+        if not args.snapshot or not args.target:
+            raise SystemExit("--snapshot and --target are required for restore")
+        from .restore import restore_snapshot
 
-        # Keep oldest snapshots from the weekly and monthly windows.
-        if weekly_count > 0:
-            for idx in range(1, weekly_count + 1):
-                candidate = snapshots[-(daily_count + idx)] if daily_count + idx <= len(snapshots) else None
-                if candidate is not None:
-                    keep.add(candidate.name)
+        restore_snapshot(args.snapshot, args.target)
+        print(f"Restored snapshot {args.snapshot} to {args.target}")
+        return
 
-        if monthly_count > 0:
-            for idx in range(1, monthly_count + 1):
-                candidate = snapshots[-(daily_count + weekly_count + idx)] if daily_count + weekly_count + idx <= len(snapshots) else None
-                if candidate is not None:
-                    keep.add(candidate.name)
+    runner = BackupRunner(args.repo_root)
+    selected_jobs = jobs if not args.job else [job for job in jobs if job.id == args.job]
+    if not selected_jobs:
+        raise SystemExit(f"No job found matching id: {args.job}")
 
-        for snapshot in snapshots:
-            if snapshot.name not in keep:
-                shutil.rmtree(snapshot)
+    for job in selected_jobs:
+        result = runner.run_job(job)
+        print(f"{job.id}: {result.status} -> {result.message}")
+
+
+if __name__ == "__main__":
+    main()

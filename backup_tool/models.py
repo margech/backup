@@ -28,6 +28,9 @@ class JobConfig:
     source_excludes: list[str] = field(default_factory=list)
     source_includes: list[str] = field(default_factory=list)
     retention: dict[str, int] = field(default_factory=lambda: {"daily": 7, "weekly": 4, "monthly": 12})
+    account_id: Optional[str] = None
+    cloud_remote: Optional[str] = None
+    cloud_path: Optional[str] = None
 
 
 @dataclass

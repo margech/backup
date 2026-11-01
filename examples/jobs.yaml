@@ -1,26 +1,29 @@
-# backup v0.2
+# backup v0.3
 
-Eine zweite Iteration eines modularen Backup-Tools für Linux.
+Eine erweiterte Version mit Remote-Transport, Locking und pCloud-vorbereiteter Architektur.
 
 ## Funktionen
 
 - Dateisystem-Backups mit rsync
+- Remote-Quellen per SSH
 - SQL-Dump-Adapter für PostgreSQL/MySQL/SQLite
 - Include-/Exclude-Muster pro Quelle
-- Retention-Policy (daily/weekly/monthly)
+- Retention-Policy für daily/weekly/monthly
+- Restore-Funktion
+- Job-Locking, damit keine zwei Backups parallel laufen
+- pCloud-Backend als rclone-basierter Adapter
 - pluggable Notifier (E-Mail, Desktop)
-- Restore-Befehl als Grundgerüst
-- vorbereitete Struktur für SSH-Quellen und pCloud-Backend
 
 ## Architektur
 
-- backup_tool/models.py: Datamodelle
-- backup_tool/sources.py: Source-Adapter
-- backup_tool/runner.py: Backup-Lauf mit Snapshot und Notifications
-- backup_tool/retention.py: Simple retention management
+- backup_tool/models.py: Job-, Notifier- und Ergebnis-Modelle
+- backup_tool/sources.py: Filesystem-, SQL- und pCloud-Adapter
+- backup_tool/runner.py: Backup-Lauf mit Locking und Notifications
+- backup_tool/retention.py: Retention-Policy
 - backup_tool/restore.py: Restore-Funktion
-- backup_tool/scheduler.py: Scheduler-Wrapper
-- backup_tool/notifiers.py: E-Mail/Desktop-Notifier
+- backup_tool/lock.py: Parallelitäts-Schutz
+- backup_tool/scheduler.py: einfacher Job-Scheduler
+- backup_tool/notifiers.py: E-Mail/Desktop-Notifications
 
 ## Beispiel-Konfiguration
 
@@ -30,12 +33,11 @@ jobs:
     name: Home Files
     source_type: filesystem
     source_path: /home/user
-    destination: /var/backups/home-files
+    transport: local
     source_excludes:
       - .cache
       - node_modules
       - tmp/**
-      - Downloads/temp/**
     source_includes:
       - "*.txt"
     retention:
@@ -49,11 +51,13 @@ jobs:
       - type: desktop
         on: [success, failure]
 
-  - id: app-db
-    name: App Database
+  - id: remote-db
+    name: Remote Database
     source_type: postgres
     source_path: appdb
-    destination: /var/backups/app-db
+    transport: ssh
+    remote_host: db01.example.com
+    remote_user: backupuser
     retention:
       daily: 7
       weekly: 4
@@ -62,7 +66,26 @@ jobs:
       - type: email
         to: admin@example.com
         on: [failure]
+
+  - id: pcloud-docs
+    name: pCloud Documents
+    source_type: pcloud
+    source_path: /
+    cloud_remote: pcloud
+    cloud_path: /Documents
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 12
 ```
+
+## Hinweise
+
+- Für lokale Dateisystem-Backups muss `rsync` installiert sein.
+- Für SSH-Quellen muss SSH auf dem Zielhost erreichbar sein und der Benutzer Zugang haben.
+- Für pCloud muss `rclone` installiert sein und ein pCloud-Remote unter dem Namen `pcloud` konfiguriert sein.
+- Für SQL-Dumps müssen die DB-Tools installiert sein (`pg_dump`, `mysqldump`, `sqlite3`).
+- Der Lock verhindert, dass zwei Backups gleichzeitig denselben Backup-Store nutzen.
 
 ## Nutzung
 
@@ -80,7 +103,7 @@ Jobs anzeigen:
 python -m backup_tool.main list --config examples/jobs.yaml
 ```
 
-Einzelnen Job ausführen:
+Backup ausführen:
 
 ```bash
 python -m backup_tool.main run --config examples/jobs.yaml --job home-files --repo-root /var/backups/store
@@ -89,13 +112,5 @@ python -m backup_tool.main run --config examples/jobs.yaml --job home-files --re
 Snapshot wiederherstellen:
 
 ```bash
-python -m backup_tool.main restore --config examples/jobs.yaml --snapshot /var/backups/store/snapshots/home-files/20261031_120000 --target /tmp/restore
+python -m backup_tool.main restore --snapshot /var/backups/store/snapshots/home-files/20261031_120000 --target /tmp/restore
 ```
-
-## Hinweise
-
-- Für Dateisystem-Backups muss `rsync` installiert sein.
-- Für SQL-Dumps müssen die jeweiligen DB-Tools installiert sein (`pg_dump`, `mysqldump`, `sqlite3`).
-- pCloud ist in dieser Version als bewusstes Stub-Backend enthalten; die echte Integration folgt in einer späteren Version.
-- SSH-Quellen sind vorbereitet, aber die volle Remote-Transport-Implementierung wird in einem späteren Schritt ergänzt.
-- Die Notifier laufen nur, wenn die Umgebung dafür geeignet ist (z. B. GUI für Desktop-Notifications, SMTP-Konfiguration für E-Mail).

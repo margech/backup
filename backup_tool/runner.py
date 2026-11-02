@@ -33,6 +33,16 @@ class BackupRunner:
             raise FileExistsError(f"Snapshot already exists: {final_dir}")
         temp_dir.rename(final_dir)
 
+    def _update_current_link(self, snapshot_dir: Path) -> None:
+        current_link = snapshot_dir.parent / "current"
+        temporary_link = snapshot_dir.parent / \
+            f".current-{os.getpid()}-{time.time_ns()}"
+        try:
+            os.symlink(snapshot_dir.name, temporary_link)
+            os.replace(temporary_link, current_link)
+        finally:
+            temporary_link.unlink(missing_ok=True)
+
     def run_job(self, job: JobConfig) -> BackupResult:
         repo_root = self._repo_root_for(job)
         lock = BackupLock(repo_root / "backup.lock")
@@ -64,6 +74,7 @@ class BackupRunner:
             (final_snapshot_dir / "manifest.json").write_text(json.dumps(manifest,
                                                                          indent=2), encoding="utf-8")
 
+            self._update_current_link(final_snapshot_dir)
             RetentionPolicy(job.retention).apply(repo_root, job.id)
 
             finished = time.time()

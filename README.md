@@ -104,7 +104,7 @@ python -m backup_tool.main restore --snapshot /var/backups/home-files/snapshots/
 ```
 
 Mit `--config /pfad/zur/jobs.yaml` kann eine andere Konfigurationsdatei angegeben werden.
-Jeder Job kann mit `destination` sein eigenes Repository-Verzeichnis erhalten. Snapshots liegen darunter unter `snapshots/<job-id>/<zeitstempel>`. Fehlt `destination`, wird `--repo-root` verwendet (Standard: `./.backup_store`). Relative Job-Ziele beziehen sich auf das aktuelle Arbeitsverzeichnis.
+Jeder Job kann mit `destination` sein eigenes Repository-Verzeichnis erhalten. Snapshots liegen darunter unter `snapshots/<job-id>/<zeitstempel>`. Der relative Symlink `snapshots/<job-id>/current` zeigt nach einem erfolgreichen Lauf auf den neuesten Snapshot. Fehlt `destination`, wird `--repo-root` verwendet (Standard: `./.backup_store`). Relative Job-Ziele beziehen sich auf das aktuelle Arbeitsverzeichnis.
 
 ## Tests
 

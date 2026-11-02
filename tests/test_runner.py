@@ -61,6 +61,7 @@ def test_run_job_creates_snapshot_manifest_and_dispatches_notification(
         source_type="filesystem",
         source_path="/unused",
         destination=str(tmp_path / "job-repository"),
+        retention={"daily": 0, "weekly": 0, "monthly": 0},
         notifiers=[NotifierConfig(type="desktop", on=["success"])],
     )
     runner = BackupRunner(tmp_path)
@@ -72,6 +73,9 @@ def test_run_job_creates_snapshot_manifest_and_dispatches_notification(
     snapshot = job_repository / "snapshots" / job.id / \
         result.snapshot_path.split("/")[-1]
     assert snapshot.is_dir()
+    current_link = job_repository / "snapshots" / job.id / "current"
+    assert current_link.is_symlink()
+    assert current_link.resolve() == snapshot
     assert (snapshot / "backup.txt").read_text(encoding="utf-8") == "contents"
     manifest = json.loads(
         (snapshot / "manifest.json").read_text(encoding="utf-8"))

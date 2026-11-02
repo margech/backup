@@ -18,13 +18,20 @@ class RetentionPolicy:
             return
 
         snapshots = sorted(
-            [p for p in snapshot_root.iterdir() if p.is_dir()],
+            [p for p in snapshot_root.iterdir()
+             if p.is_dir() and not p.is_symlink()],
             key=lambda p: p.name,
         )
         if not snapshots:
             return
 
         keep: set[str] = set()
+        current_link = snapshot_root / "current"
+        if current_link.is_symlink():
+            current_snapshot = current_link.resolve()
+            if current_snapshot.parent == snapshot_root.resolve() and current_snapshot.is_dir():
+                keep.add(current_snapshot.name)
+
         daily_count = self.config.get("daily", 0)
         weekly_count = self.config.get("weekly", 0)
         monthly_count = self.config.get("monthly", 0)

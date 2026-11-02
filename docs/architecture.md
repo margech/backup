@@ -23,6 +23,7 @@ Ein Job kapselt:
 Ein Backup wird zunächst in einem temporären Ordner erzeugt.
 
 Nach erfolgreichem Lauf wird der Ordner als gültiger Snapshot finalisiert. Dadurch bleiben unvollständige Snapshots nicht sichtbar.
+Unter `snapshots/<job-id>/current` wird ein relativer Symlink atomar auf den zuletzt finalisierten Snapshot aktualisiert. Die Retention zählt den Link nicht als Snapshot und behält dessen Ziel.
 
 ### 3. Retention-Policy
 

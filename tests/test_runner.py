@@ -1,6 +1,6 @@
 import json
 
-from backup_tool.models import JobConfig, NotifierConfig
+from backup_tool.models import BackupResult, JobConfig, NotifierConfig
 from backup_tool.runner import BackupRunner, load_jobs_from_config
 
 
@@ -122,3 +122,55 @@ def test_load_jobs_from_config_uses_job_destination(tmp_path):
     jobs = load_jobs_from_config(config_path)
 
     assert jobs[0].destination == "/backups/documents"
+
+
+def test_email_notifier_dispatches_through_runner(tmp_path, monkeypatch):
+    sent_messages = []
+
+    class FakeSMTP:
+        def __init__(self, host, port):
+            assert host == "smtp.example.com"
+            assert port == 587
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def starttls(self):
+            pass
+
+        def login(self, username, password):
+            assert username == "backup@example.com"
+            assert password == "secret"
+
+        def send_message(self, message):
+            sent_messages.append(message)
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_USER", "backup@example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
+    monkeypatch.setattr("backup_tool.notifiers.smtplib.SMTP", FakeSMTP)
+
+    job = JobConfig(
+        id="documents",
+        name="Documents",
+        source_type="filesystem",
+        source_path="/unused",
+        notifiers=[NotifierConfig(type="email", to="admin@example.com")],
+    )
+    result = BackupResult(
+        job_id=job.id,
+        status="success",
+        snapshot_path=None,
+        started_at="2026-11-02T00:00:00Z",
+        finished_at="2026-11-02T00:00:01Z",
+        duration_seconds=1,
+        message="Backup successful",
+    )
+
+    BackupRunner(tmp_path)._dispatch_notifications(job, result)
+
+    assert len(sent_messages) == 1
+    assert sent_messages[0]["To"] == "admin@example.com"

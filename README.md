@@ -61,10 +61,12 @@ backup/
 
 ## Schnellstart
 
+Virtuelle Umgebungen sind nicht verschiebbar. Erstelle `.venv` daher direkt in diesem Projektverzeichnis und kopiere sie nicht aus einem anderen Checkout.
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Quellen erweitern

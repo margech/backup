@@ -6,6 +6,7 @@ jobs:
     name: Home Files
     source_type: filesystem
     source_path: /home/user
+    destination: /var/backups/home-files
     transport: local
     source_excludes:
       - .cache
@@ -28,6 +29,7 @@ jobs:
     name: Remote Database
     source_type: postgres
     source_path: appdb
+    destination: /var/backups/remote-db
     transport: ssh
     remote_host: db01.example.com
     remote_user: backupuser
@@ -44,6 +46,7 @@ jobs:
     name: Remote Files
     source_type: ssh
     source_path: /srv/files
+    destination: /var/backups/remote-files
     transport: ssh
     remote_host: backup01.example.com
     remote_user: backupuser
@@ -59,6 +62,7 @@ jobs:
     source_type: pcloud
     cloud_remote: pcloud
     cloud_path: /Documents
+    destination: /var/backups/pcloud-docs
     retention:
       daily: 7
       weekly: 4

@@ -13,7 +13,7 @@ Jeder Backup-Lauf ist ein Job.
 Ein Job kapselt:
 - Quelle (Dateisystem, SQL, pCloud)
 - Transport (local, ssh)
-- Ziel-Repository
+- eigenes Ziel-Repository (`destination`)
 - Retention-Policy
 - Benachrichtigungen
 - Include-/Exclude-Muster
@@ -27,6 +27,7 @@ Nach erfolgreichem Lauf wird der Ordner als gültiger Snapshot finalisiert. Dadu
 ### 3. Retention-Policy
 
 Die Policy ist separat definiert und arbeitet mit täglichen, wöchentlichen und monatlichen Zeitschnitten.
+Sie wird im jeweiligen Job-Repository unter `destination` angewendet. Fehlt dieses Feld, verwendet die CLI `--repo-root` als gemeinsamen Fallback.
 
 ### 4. Notifier
 

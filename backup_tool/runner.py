@@ -17,12 +17,15 @@ from .sources import create_source
 class BackupRunner:
     def __init__(self, repo_root: str | Path):
         self.repo_root = Path(repo_root)
-        self.repo_root.mkdir(parents=True, exist_ok=True)
-        self.lock = BackupLock(self.repo_root / "backup.lock")
 
-    def _snapshot_dir_for(self, job: JobConfig) -> Path:
+    def _repo_root_for(self, job: JobConfig) -> Path:
+        if job.destination:
+            return Path(job.destination).expanduser()
+        return self.repo_root
+
+    def _snapshot_dir_for(self, job: JobConfig, repo_root: Path) -> Path:
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        snapshot_root = self.repo_root / "snapshots" / job.id
+        snapshot_root = repo_root / "snapshots" / job.id
         snapshot_root.mkdir(parents=True, exist_ok=True)
         return snapshot_root / f"{timestamp}.tmp"
 
@@ -32,13 +35,15 @@ class BackupRunner:
         temp_dir.rename(final_dir)
 
     def run_job(self, job: JobConfig) -> BackupResult:
-        if not self.lock.acquire():
+        repo_root = self._repo_root_for(job)
+        lock = BackupLock(repo_root / "backup.lock")
+        if not lock.acquire():
             raise RuntimeError(
                 f"Another backup for {job.id} is already running.")
 
         started = time.time()
         started_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-        temp_snapshot_dir = self._snapshot_dir_for(job)
+        temp_snapshot_dir = self._snapshot_dir_for(job, repo_root)
         temp_snapshot_dir.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -60,7 +65,7 @@ class BackupRunner:
             (final_snapshot_dir / "manifest.json").write_text(json.dumps(manifest,
                                                                          indent=2), encoding="utf-8")
 
-            RetentionPolicy(job.retention).apply(self.repo_root, job.id)
+            RetentionPolicy(job.retention).apply(repo_root, job.id)
 
             finished = time.time()
             result = BackupResult(
@@ -97,7 +102,7 @@ class BackupRunner:
                 metadata={"error": str(exc)},
             )
         finally:
-            self.lock.release()
+            lock.release()
 
         self._dispatch_notifications(job, result)
         return result
@@ -144,7 +149,7 @@ def load_jobs_from_config(config_path: str | os.PathLike[str]) -> list[JobConfig
                 name=item.get("name", item["id"]),
                 source_type=item.get("source_type", "filesystem"),
                 source_path=item.get("source_path", "."),
-                destination=item.get("destination", "."),
+                destination=item.get("destination"),
                 notifiers=notifiers,
                 schedule=item.get("schedule"),
                 transport=item.get("transport", "local"),

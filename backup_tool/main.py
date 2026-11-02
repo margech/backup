@@ -18,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Path to an environment file (default: .env)")
     parser.add_argument("--job", help="Optional job id to run only one job")
     parser.add_argument("--repo-root", default="./.backup_store",
-                        help="Directory where snapshots are stored")
+                        help="Fallback repository root for jobs without destination")
     parser.add_argument("--snapshot", help="Snapshot directory to restore")
     parser.add_argument("--target", help="Restore target directory")
     return parser

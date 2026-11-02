@@ -29,7 +29,7 @@ jobs:
     assert job.id == "documents"
     assert job.name == "documents"
     assert job.source_type == "filesystem"
-    assert job.destination == "."
+    assert job.destination is None
     assert job.source_excludes == ["cache"]
     assert job.source_includes == ["*.txt"]
     assert job.retention == {"daily": 3, "weekly": 4, "monthly": 12}
@@ -60,7 +60,7 @@ def test_run_job_creates_snapshot_manifest_and_dispatches_notification(
         name="Documents",
         source_type="filesystem",
         source_path="/unused",
-        destination="/unused",
+        destination=str(tmp_path / "job-repository"),
         notifiers=[NotifierConfig(type="desktop", on=["success"])],
     )
     runner = BackupRunner(tmp_path)
@@ -68,7 +68,8 @@ def test_run_job_creates_snapshot_manifest_and_dispatches_notification(
     result = runner.run_job(job)
 
     assert result.status == "success"
-    snapshot = tmp_path / "snapshots" / job.id / \
+    job_repository = tmp_path / "job-repository"
+    snapshot = job_repository / "snapshots" / job.id / \
         result.snapshot_path.split("/")[-1]
     assert snapshot.is_dir()
     assert (snapshot / "backup.txt").read_text(encoding="utf-8") == "contents"
@@ -76,6 +77,7 @@ def test_run_job_creates_snapshot_manifest_and_dispatches_notification(
         (snapshot / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["job_id"] == job.id
     assert manifest["metadata"] == {"file_count": 1}
+    assert not (job_repository / "backup.lock").exists()
     assert not (tmp_path / "backup.lock").exists()
     assert events == [{
         "job_id": job.id,
@@ -100,7 +102,6 @@ def test_run_job_failure_removes_temporary_snapshot_and_releases_lock(
         name="Documents",
         source_type="filesystem",
         source_path="/unused",
-        destination="/unused",
     )
 
     result = BackupRunner(tmp_path).run_job(job)
@@ -109,3 +110,15 @@ def test_run_job_failure_removes_temporary_snapshot_and_releases_lock(
     assert result.metadata == {"error": "source unavailable"}
     assert not list((tmp_path / "snapshots" / job.id).glob("*.tmp"))
     assert not (tmp_path / "backup.lock").exists()
+
+
+def test_load_jobs_from_config_uses_job_destination(tmp_path):
+    config_path = tmp_path / "jobs.yaml"
+    config_path.write_text(
+        "jobs:\n  - id: documents\n    destination: /backups/documents\n",
+        encoding="utf-8",
+    )
+
+    jobs = load_jobs_from_config(config_path)
+
+    assert jobs[0].destination == "/backups/documents"

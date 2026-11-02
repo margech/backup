@@ -97,11 +97,12 @@ Kopiere die Beispielkonfiguration ins Hauptverzeichnis. Dort werden standardmä�
 ```bash
 cp examples/jobs.yaml jobs.yaml
 python -m backup_tool.main list
-python -m backup_tool.main run --job home-files --repo-root /var/backups/store
-python -m backup_tool.main restore --snapshot /var/backups/store/snapshots/home-files/20261031_120000 --target /tmp/restore
+python -m backup_tool.main run --job home-files
+python -m backup_tool.main restore --snapshot /var/backups/home-files/snapshots/home-files/20261031_120000 --target /tmp/restore
 ```
 
 Mit `--config /pfad/zur/jobs.yaml` kann eine andere Konfigurationsdatei angegeben werden.
+Jeder Job kann mit `destination` sein eigenes Repository-Verzeichnis erhalten. Snapshots liegen darunter unter `snapshots/<job-id>/<zeitstempel>`. Fehlt `destination`, wird `--repo-root` verwendet (Standard: `./.backup_store`). Relative Job-Ziele beziehen sich auf das aktuelle Arbeitsverzeichnis.
 
 ## Tests
 
@@ -116,13 +117,11 @@ python -m pytest
 
 Empfänger und Ereignisse werden pro Job in `examples/jobs.yaml` unter `notifiers` konfiguriert. Das CLI lädt standardmäßig `.env` aus dem aktuellen Arbeitsverzeichnis. Alternativ kann die Datei mit `--env-file` angegeben werden. Bereits in der Prozessumgebung gesetzte Werte haben Vorrang.
 
-Lege im Arbeitsverzeichnis eine `.env`-Datei an:
+Kopiere die Vorlage ins Hauptverzeichnis, setze dort deine Zugangsdaten ein und beschränke die Dateirechte:
 
-```dotenv
-SMTP_HOST=smtp.example.com
-SMTP_USER=backup@example.com
-SMTP_PASSWORD=change-me
-SMTP_FROM=backup@example.com
+```bash
+cp examples/.env.example .env
+chmod 600 .env
 ```
 
 Danach kann das Backup ohne vorheriges manuelles Exportieren gestartet werden:

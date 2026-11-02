@@ -19,7 +19,7 @@ class JobConfig:
     name: str
     source_type: str
     source_path: str
-    destination: str
+    destination: Optional[str] = None
     notifiers: list[NotifierConfig] = field(default_factory=list)
     schedule: Optional[str] = None
     transport: str = "local"
@@ -27,7 +27,8 @@ class JobConfig:
     remote_user: Optional[str] = None
     source_excludes: list[str] = field(default_factory=list)
     source_includes: list[str] = field(default_factory=list)
-    retention: dict[str, int] = field(default_factory=lambda: {"daily": 7, "weekly": 4, "monthly": 12})
+    retention: dict[str, int] = field(
+        default_factory=lambda: {"daily": 7, "weekly": 4, "monthly": 12})
     account_id: Optional[str] = None
     cloud_remote: Optional[str] = None
     cloud_path: Optional[str] = None

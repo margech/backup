@@ -139,7 +139,40 @@ Eine alternative Env-Datei lässt sich explizit setzen: `python -m backup_tool.m
 - `SMTP_FROM`: Absenderadresse; Standard ist `SMTP_USER` oder `backup@example.com`.
 - Der SMTP-Port ist derzeit fest auf `587` gesetzt; eine Variable `SMTP_PORT` wird nicht ausgewertet.
 
-Die Werte werden beim CLI-Start in die Prozessumgebung geladen. Datenbank-Tools erhalten diese Umgebung ebenfalls: PostgreSQL verwendet beispielsweise seine üblichen `PG*`-Variablen, MySQL seine unterstützten `MYSQL_*`-Variablen. Zugangsdaten für SSH und pCloud werden dagegen weiterhin über SSH-Schlüssel/Agent beziehungsweise die rclone-Konfiguration verwaltet.
+Die Werte werden beim CLI-Start in die Prozessumgebung geladen. Datenbank-Tools erhalten diese Umgebung ebenfalls: PostgreSQL verwendet beispielsweise seine üblichen `PG*`-Variablen, MySQL seine unterstützten `MYSQL_*`-Variablen. SSH verwendet Schlüssel oder Agent.
+
+### pCloud mit rclone
+
+Richte das Remote einmalig interaktiv ein:
+
+```bash
+rclone config
+```
+
+Im Dialog:
+
+1. `n` für ein neues Remote wählen.
+2. Einen Namen vergeben, zum Beispiel `pcloud`.
+3. Als Storage `Pcloud` auswählen.
+4. Client-ID und Client-Secret leer lassen, sofern du keine eigene pCloud-App verwendest.
+5. Die erweiterten Einstellungen überspringen und die automatische Anmeldung im Browser bestätigen.
+6. Im Browser bei pCloud anmelden, den Zugriff erlauben und das Remote im Dialog speichern.
+
+rclone führt dabei die OAuth-Anmeldung aus und speichert das Token in seiner Konfiguration. Prüfe den Zugriff zum Beispiel so:
+
+```bash
+rclone lsf pcloud:/Documents
+```
+
+Im Job muss `cloud_remote` exakt dem vergebenen rclone-Remote-Namen entsprechen. Bei einem anderen Namen, etwa `mein-pcloud`, muss auch `cloud_remote: mein-pcloud` gesetzt werden:
+
+```yaml
+source_type: pcloud
+cloud_remote: pcloud
+cloud_path: /Documents
+```
+
+Die Zugangsdaten bleiben in der rclone-Konfiguration und gehören nicht in `.env` oder `jobs.yaml`. Für weitere Konten kannst du weitere Remotes einrichten und den jeweiligen Namen in `cloud_remote` eintragen.
 
 Fehlt der Empfänger `to` im Job, wird ebenfalls keine E-Mail gesendet. Sind `SMTP_USER` oder `SMTP_PASSWORD` nicht beide gesetzt, sendet der aktuelle Code ohne Authentifizierung und ohne STARTTLS. SMTP-Fehler werden abgefangen und nicht angezeigt; sie verhindern daher den Backup-Lauf nicht, sind aber auch nicht direkt sichtbar.
 
@@ -150,7 +183,7 @@ Desktop-Benachrichtigungen benötigen eine gesetzte Variable `DISPLAY` und das P
 - Für lokale Dateisystem-Backups wird `rsync` benötigt.
 - Für SSH-Quellen müssen `rsync` und SSH installiert sein; der konfigurierte Host muss erreichbar sein.
 - Für SQL-Dumps müssen DB-Tools wie `pg_dump`, `mysqldump` oder `sqlite3` installiert sein.
-- Für pCloud muss `rclone` installiert und konfiguriert sein.
+- Für pCloud muss `rclone` installiert und das in `cloud_remote` genannte Remote konfiguriert sein.
 - Die Notifier laufen nur, wenn die Umgebung dafür geeignet ist.
 - Ein integrierter Scheduler ist noch nicht implementiert; geplante Ausführung erfolgt vorerst über systemd oder cron.
 

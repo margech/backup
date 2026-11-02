@@ -10,7 +10,7 @@ from .base import SourceAdapter
 
 
 class PCloudSource(SourceAdapter):
-    """rclone-backed adapter for pCloud remote sources."""
+    """Create a pCloud snapshot using a configured rclone remote."""
 
     def create_snapshot(self, job: JobConfig, snapshot_dir: Path) -> dict:
         rclone_bin = shutil.which("rclone")
@@ -27,7 +27,8 @@ class PCloudSource(SourceAdapter):
         completed = subprocess.run(command, capture_output=True, text=True)
         if completed.returncode != 0:
             raise RuntimeError(
-                completed.stderr or completed.stdout or "rclone pCloud sync failed")
+                completed.stderr or completed.stdout or "rclone pCloud sync failed"
+            )
 
         return {
             "source_type": "pcloud",

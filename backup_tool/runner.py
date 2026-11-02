@@ -174,7 +174,6 @@ def load_jobs_from_config(config_path: str | os.PathLike[str]) -> list[JobConfig
                     "weekly": int(retention.get("weekly", 4)),
                     "monthly": int(retention.get("monthly", 12)),
                 },
-                account_id=item.get("account_id"),
                 cloud_remote=item.get("cloud_remote"),
                 cloud_path=item.get("cloud_path"),
             )

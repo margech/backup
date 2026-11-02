@@ -21,13 +21,13 @@
 - pCloud-ready backend
 - robustere Job-Architektur mit separaten Source-Modulen und Modul-/Klassen-Registry
 
-## v0.4 (geplant)
+## v0.4 (in Arbeit)
 
-- echte pCloud-API-Integration
-- mehrere Accounts und Tokens
+- pCloud-Zugriff über konfigurierte rclone-Remotes
 - sichere Secret-Management-Architektur
 - systemd und cron-Integration
 - Status-/Log-Archiv
+- direkte pCloud-API-Integration zurückgestellt
 
 ## v0.5 (geplant)
 

@@ -113,3 +113,24 @@ def test_ssh_source_requires_remote_host():
 
     with pytest.raises(ValueError, match="remote_host is required for SSH source"):
         SSHSource().create_snapshot(job, Path("/snapshot"))
+
+
+def test_pcloud_source_uses_configured_rclone_remote(tmp_path, monkeypatch):
+    run = Mock(return_value=SimpleNamespace(
+        returncode=0, stderr="", stdout=""))
+    monkeypatch.setattr("backup_tool.sources.pcloud.shutil.which",
+                        lambda name: "/usr/bin/rclone")
+    monkeypatch.setattr("backup_tool.sources.pcloud.subprocess.run", run)
+    job = make_job("pcloud", cloud_remote="personal", cloud_path="/Documents")
+    snapshot_dir = tmp_path / "snapshot"
+
+    metadata = PCloudSource().create_snapshot(job, snapshot_dir)
+
+    assert run.call_args.args[0] == [
+        "/usr/bin/rclone",
+        "sync",
+        "personal:/Documents",
+        str(snapshot_dir / "cloud"),
+    ]
+    assert metadata["cloud_remote"] == "personal"
+    assert metadata["cloud_path"] == "/Documents"

@@ -92,11 +92,16 @@ jobs:
 
 ## Beispiel ausführen
 
+Kopiere die Beispielkonfiguration ins Hauptverzeichnis. Dort werden standardmäßig sowohl `jobs.yaml` als auch `.env` gesucht:
+
 ```bash
-python -m backup_tool.main list --config examples/jobs.yaml
-python -m backup_tool.main run --config examples/jobs.yaml --job home-files --repo-root /var/backups/store
-python -m backup_tool.main restore --config examples/jobs.yaml --snapshot /var/backups/store/snapshots/home-files/20261031_120000 --target /tmp/restore
+cp examples/jobs.yaml jobs.yaml
+python -m backup_tool.main list
+python -m backup_tool.main run --job home-files --repo-root /var/backups/store
+python -m backup_tool.main restore --snapshot /var/backups/store/snapshots/home-files/20261031_120000 --target /tmp/restore
 ```
+
+Mit `--config /pfad/zur/jobs.yaml` kann eine andere Konfigurationsdatei angegeben werden.
 
 ## Tests
 
@@ -106,6 +111,38 @@ Die Test-Abhängigkeit installieren und die Suite starten:
 pip install -e ".[test]"
 python -m pytest
 ```
+
+## E-Mail-Benachrichtigungen
+
+Empfänger und Ereignisse werden pro Job in `examples/jobs.yaml` unter `notifiers` konfiguriert. Das CLI lädt standardmäßig `.env` aus dem aktuellen Arbeitsverzeichnis. Alternativ kann die Datei mit `--env-file` angegeben werden. Bereits in der Prozessumgebung gesetzte Werte haben Vorrang.
+
+Lege im Arbeitsverzeichnis eine `.env`-Datei an:
+
+```dotenv
+SMTP_HOST=smtp.example.com
+SMTP_USER=backup@example.com
+SMTP_PASSWORD=change-me
+SMTP_FROM=backup@example.com
+```
+
+Danach kann das Backup ohne vorheriges manuelles Exportieren gestartet werden:
+
+```bash
+python -m backup_tool.main run
+```
+
+Eine alternative Env-Datei lässt sich explizit setzen: `python -m backup_tool.main run --env-file /etc/backup-tool/backup.env`. Nach einer Installation mit `pip install -e .` kann stattdessen auch das Kommando `backup-tool` verwendet werden.
+
+- `SMTP_HOST`: SMTP-Server. Ohne diese Variable wird die E-Mail still übersprungen.
+- `SMTP_USER` und `SMTP_PASSWORD`: Werden nur gemeinsam verwendet. Sind beide gesetzt, aktiviert der Notifier STARTTLS und meldet sich an.
+- `SMTP_FROM`: Absenderadresse; Standard ist `SMTP_USER` oder `backup@example.com`.
+- Der SMTP-Port ist derzeit fest auf `587` gesetzt; eine Variable `SMTP_PORT` wird nicht ausgewertet.
+
+Die Werte werden beim CLI-Start in die Prozessumgebung geladen. Datenbank-Tools erhalten diese Umgebung ebenfalls: PostgreSQL verwendet beispielsweise seine üblichen `PG*`-Variablen, MySQL seine unterstützten `MYSQL_*`-Variablen. Zugangsdaten für SSH und pCloud werden dagegen weiterhin über SSH-Schlüssel/Agent beziehungsweise die rclone-Konfiguration verwaltet.
+
+Fehlt der Empfänger `to` im Job, wird ebenfalls keine E-Mail gesendet. Sind `SMTP_USER` oder `SMTP_PASSWORD` nicht beide gesetzt, sendet der aktuelle Code ohne Authentifizierung und ohne STARTTLS. SMTP-Fehler werden abgefangen und nicht angezeigt; sie verhindern daher den Backup-Lauf nicht, sind aber auch nicht direkt sichtbar.
+
+Desktop-Benachrichtigungen benötigen eine gesetzte Variable `DISPLAY` und das Programm `notify-send`. Fehlt eine der Voraussetzungen, wird die Benachrichtigung still übersprungen.
 
 ## Wichtige Hinweise
 

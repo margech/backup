@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 
+from dotenv import load_dotenv
+
 from .restore import restore_snapshot
 from .runner import BackupRunner, load_jobs_from_config
 
@@ -10,8 +12,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Modular backup tool")
     parser.add_argument("action", choices=[
                         "run", "list", "restore"], help="Action to execute")
-    parser.add_argument("--config", required=True,
-                        help="Path to the YAML job definition file")
+    parser.add_argument("--config", default="jobs.yaml",
+                        help="Path to the YAML job definition file (default: jobs.yaml)")
+    parser.add_argument("--env-file", default=".env",
+                        help="Path to an environment file (default: .env)")
     parser.add_argument("--job", help="Optional job id to run only one job")
     parser.add_argument("--repo-root", default="./.backup_store",
                         help="Directory where snapshots are stored")
@@ -23,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+    load_dotenv(args.env_file)
     jobs = load_jobs_from_config(args.config)
 
     if args.action == "list":

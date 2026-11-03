@@ -3,12 +3,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from backup_tool.models import JobConfig
-from backup_tool.sources import SOURCE_REGISTRY, create_source
-from backup_tool.sources.filesystem import FilesystemSource
-from backup_tool.sources.pcloud import PCloudSource
-from backup_tool.sources.sql_dump import SqlDumpSource
-from backup_tool.sources.ssh import SSHSource
+from snup.models import JobConfig
+from snup.sources import SOURCE_REGISTRY, create_source
+from snup.sources.filesystem import FilesystemSource
+from snup.sources.pcloud import PCloudSource
+from snup.sources.sql_dump import SqlDumpSource
+from snup.sources.ssh import SSHSource
 
 
 def make_job(source_type="filesystem", **kwargs):
@@ -37,7 +37,7 @@ def test_create_source_resolves_module_and_class(source_type, module_name, class
     adapter = create_source(make_job(source_type))
 
     assert SOURCE_REGISTRY[source_type] == (module_name, class_name)
-    assert type(adapter).__module__ == f"backup_tool.sources.{module_name}"
+    assert type(adapter).__module__ == f"snup.sources.{module_name}"
     assert type(adapter).__name__ == class_name
 
 
@@ -55,7 +55,7 @@ def test_filesystem_source_builds_local_rsync_command(tmp_path, monkeypatch):
         source_excludes=["*.tmp"],
         source_includes=["*.txt"],
     )
-    monkeypatch.setattr("backup_tool.sources.filesystem.shutil.which",
+    monkeypatch.setattr("snup.sources.filesystem.shutil.which",
                         lambda name: "/usr/bin/rsync")
 
     command = FilesystemSource()._build_rsync_command(job, snapshot_dir)
@@ -74,7 +74,7 @@ def test_filesystem_source_builds_local_rsync_command(tmp_path, monkeypatch):
 
 
 def test_filesystem_source_requires_remote_host_for_ssh(monkeypatch):
-    monkeypatch.setattr("backup_tool.sources.filesystem.shutil.which",
+    monkeypatch.setattr("snup.sources.filesystem.shutil.which",
                         lambda name: "/usr/bin/rsync")
     job = make_job(transport="ssh", remote_host=None)
 
@@ -87,9 +87,9 @@ def test_ssh_source_runs_rsync_with_remote_path_and_metadata(tmp_path, monkeypat
     snapshot_dir.mkdir()
     run = Mock(return_value=SimpleNamespace(
         returncode=0, stderr="", stdout=""))
-    monkeypatch.setattr("backup_tool.sources.filesystem.shutil.which",
+    monkeypatch.setattr("snup.sources.filesystem.shutil.which",
                         lambda name: "/usr/bin/rsync")
-    monkeypatch.setattr("backup_tool.sources.filesystem.subprocess.run", run)
+    monkeypatch.setattr("snup.sources.filesystem.subprocess.run", run)
     job = make_job(
         "ssh",
         transport="local",
@@ -118,9 +118,9 @@ def test_ssh_source_requires_remote_host():
 def test_pcloud_source_uses_configured_rclone_remote(tmp_path, monkeypatch):
     run = Mock(return_value=SimpleNamespace(
         returncode=0, stderr="", stdout=""))
-    monkeypatch.setattr("backup_tool.sources.pcloud.shutil.which",
+    monkeypatch.setattr("snup.sources.pcloud.shutil.which",
                         lambda name: "/usr/bin/rclone")
-    monkeypatch.setattr("backup_tool.sources.pcloud.subprocess.run", run)
+    monkeypatch.setattr("snup.sources.pcloud.subprocess.run", run)
     job = make_job("pcloud", cloud_remote="personal", cloud_path="/Documents")
     snapshot_dir = tmp_path / "snapshot"
 
@@ -139,9 +139,9 @@ def test_pcloud_source_uses_configured_rclone_remote(tmp_path, monkeypatch):
 def test_pcloud_source_uses_remote_name_for_cloud_root(tmp_path, monkeypatch):
     run = Mock(return_value=SimpleNamespace(
         returncode=0, stderr="", stdout=""))
-    monkeypatch.setattr("backup_tool.sources.pcloud.shutil.which",
+    monkeypatch.setattr("snup.sources.pcloud.shutil.which",
                         lambda name: "/usr/bin/rclone")
-    monkeypatch.setattr("backup_tool.sources.pcloud.subprocess.run", run)
+    monkeypatch.setattr("snup.sources.pcloud.subprocess.run", run)
     job = make_job("pcloud", cloud_remote="personal", cloud_path="/")
     snapshot_dir = tmp_path / "snapshot"
 

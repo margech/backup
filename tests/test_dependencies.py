@@ -1,16 +1,16 @@
 from types import SimpleNamespace
 
-from backup_tool.dependencies import (
+from snup.dependencies import (
     check_program_dependencies,
     check_python_dependencies,
     required_programs,
 )
-from backup_tool.models import JobConfig, NotifierConfig
+from snup.models import JobConfig, NotifierConfig
 
 
 def test_python_dependency_check_reports_missing_modules(monkeypatch):
     monkeypatch.setattr(
-        "backup_tool.dependencies.importlib.util.find_spec",
+        "snup.dependencies.importlib.util.find_spec",
         lambda module: SimpleNamespace(origin="/installed/yaml.py")
         if module == "yaml" else None,
     )
@@ -63,7 +63,7 @@ def test_program_check_reports_missing_and_available_tools(monkeypatch):
         source_path="/files",
     )
     monkeypatch.setattr(
-        "backup_tool.dependencies.shutil.which",
+        "snup.dependencies.shutil.which",
         lambda program: "/usr/bin/rsync" if program == "rsync" else None,
     )
 

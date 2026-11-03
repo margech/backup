@@ -1,11 +1,11 @@
 [Unit]
-Description=Run backup-tool daily
+Description=Run snup daily
 
 [Timer]
 OnCalendar=*-*-* 02:00:00
 Persistent=true
 RandomizedDelaySec=15m
-Unit=backup-tool.service
+Unit=snup.service
 
 [Install]
 WantedBy=timers.target

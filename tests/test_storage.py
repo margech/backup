@@ -1,6 +1,6 @@
-from backup_tool.lock import BackupLock
-from backup_tool.restore import restore_snapshot
-from backup_tool.retention import RetentionPolicy
+from snup.lock import BackupLock
+from snup.restore import restore_snapshot
+from snup.retention import RetentionPolicy
 
 
 def test_backup_lock_acquire_and_release(tmp_path):

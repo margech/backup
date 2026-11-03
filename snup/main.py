@@ -21,7 +21,7 @@ from .runner import (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Modular backup tool")
+    parser = argparse.ArgumentParser(description="Snup snapshot backup tool")
     parser.add_argument("action", choices=[
                         "run", "list", "restore", "status", "check"], help="Action to execute")
     parser.add_argument("--config", default="jobs.yaml",

@@ -1,0 +1,19 @@
+[Unit]
+Description=Run configured snup jobs
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=snup
+Group=snup
+WorkingDirectory=/etc/snup
+Environment=PATH=/opt/snup/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/snup/.venv/bin/snup run --config /etc/snup/jobs.yaml --env-file /etc/snup/backup.env --repo-root /var/lib/snup
+TimeoutStartSec=infinity
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/snup /var/backups

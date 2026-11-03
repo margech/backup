@@ -1,6 +1,0 @@
-# Add these lines to the backup user's crontab with: crontab -e
-SHELL=/bin/sh
-PATH=/opt/backup-tool/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-# Run daily at 02:00. A held lock skips this occurrence without an error.
-0 2 * * * /usr/bin/flock -n -E 0 /var/lib/backup-tool/scheduler.lock /opt/backup-tool/.venv/bin/backup-tool run --config /etc/backup-tool/jobs.yaml --env-file /etc/backup-tool/backup.env --repo-root /var/lib/backup-tool >> /var/log/backup-tool/cron.log 2>&1

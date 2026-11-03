@@ -1,9 +1,9 @@
-/var/log/backup-tool/cron.log {
+/var/log/snup/cron.log {
     weekly
     rotate 8
     compress
     delaycompress
     missingok
     notifempty
-    create 0640 backup backup
+    create 0640 snup snup
 }

@@ -1,0 +1,6 @@
+# Add these lines to the snup user's crontab with: crontab -e
+SHELL=/bin/sh
+PATH=/opt/snup/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Run daily at 02:00. A held lock skips this occurrence without an error.
+0 2 * * * /usr/bin/flock -n -E 0 /var/lib/snup/scheduler.lock /opt/snup/.venv/bin/snup run --config /etc/snup/jobs.yaml --env-file /etc/snup/backup.env --repo-root /var/lib/snup >> /var/log/snup/cron.log 2>&1

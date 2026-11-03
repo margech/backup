@@ -2,8 +2,8 @@ import json
 import os
 from datetime import datetime, timezone
 
-from backup_tool.models import BackupResult, JobConfig
-from backup_tool.run_history import RunHistory
+from snup.models import BackupResult, JobConfig
+from snup.run_history import RunHistory
 
 
 def make_job(job_id="documents"):

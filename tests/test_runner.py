@@ -1,7 +1,7 @@
 import json
 
-from backup_tool.models import BackupResult, JobConfig, NotifierConfig
-from backup_tool.runner import BackupRunner, load_jobs_from_config
+from snup.models import BackupResult, JobConfig, NotifierConfig
+from snup.runner import BackupRunner, load_jobs_from_config
 
 
 def test_load_jobs_from_config_applies_options_and_defaults(tmp_path):
@@ -50,9 +50,9 @@ def test_run_job_creates_snapshot_manifest_and_dispatches_notification(
         def send(self, event):
             events.append(event)
 
-    monkeypatch.setattr("backup_tool.runner.create_source",
+    monkeypatch.setattr("snup.runner.create_source",
                         lambda job: FakeSource())
-    monkeypatch.setattr("backup_tool.runner.build_notifier",
+    monkeypatch.setattr("snup.runner.build_notifier",
                         lambda config: FakeNotifier())
 
     job = JobConfig(
@@ -99,7 +99,7 @@ def test_run_job_failure_removes_temporary_snapshot_and_releases_lock(
             (snapshot_dir / "partial.txt").write_text("partial", encoding="utf-8")
             raise RuntimeError("source unavailable")
 
-    monkeypatch.setattr("backup_tool.runner.create_source",
+    monkeypatch.setattr("snup.runner.create_source",
                         lambda job: FailingSource())
     job = JobConfig(
         id="documents",
@@ -158,7 +158,7 @@ def test_email_notifier_dispatches_through_runner(tmp_path, monkeypatch):
     monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
     monkeypatch.setenv("SMTP_USER", "backup@example.com")
     monkeypatch.setenv("SMTP_PASSWORD", "secret")
-    monkeypatch.setattr("backup_tool.notifiers.smtplib.SMTP", FakeSMTP)
+    monkeypatch.setattr("snup.notifiers.smtplib.SMTP", FakeSMTP)
 
     job = JobConfig(
         id="documents",

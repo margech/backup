@@ -3,11 +3,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from backup_tool.dependencies import DependencyStatus
-from backup_tool.models import BackupResult, JobConfig
-from backup_tool.main import main
-from backup_tool.run_history import RunHistory
-from backup_tool.runner import BackupAlreadyRunningError
+from snup.dependencies import DependencyStatus
+from snup.models import BackupResult, JobConfig
+from snup.main import main
+from snup.run_history import RunHistory
+from snup.runner import BackupAlreadyRunningError
 
 
 def test_main_loads_env_file_before_command(tmp_path, monkeypatch):
@@ -20,7 +20,7 @@ def test_main_loads_env_file_before_command(tmp_path, monkeypatch):
     monkeypatch.delenv("SMTP_PASSWORD", raising=False)
     monkeypatch.setattr(
         "sys.argv",
-        ["backup-tool", "list"],
+        ["snup", "list"],
     )
 
     main()
@@ -32,7 +32,7 @@ def test_main_archives_all_results_and_exits_nonzero_on_failure(
     tmp_path, monkeypatch
 ):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("sys.argv", ["backup-tool", "run"])
+    monkeypatch.setattr("sys.argv", ["snup", "run"])
     processed_jobs = []
     backup_results = iter([
         BackupResult(
@@ -69,11 +69,11 @@ def test_main_archives_all_results_and_exits_nonzero_on_failure(
                   destination=str(tmp_path / "second-repository")),
     ]
     monkeypatch.setattr(
-        "backup_tool.main.load_jobs_from_config",
+        "snup.main.load_jobs_from_config",
         lambda config_path: jobs,
     )
     monkeypatch.setattr(
-        "backup_tool.main.BackupRunner",
+        "snup.main.BackupRunner",
         lambda repo_root: SimpleNamespace(
             run_job=run_job,
             repository_root_for=lambda job: job.destination or (
@@ -99,7 +99,7 @@ def test_main_archives_all_results_and_exits_nonzero_on_failure(
 
 def test_main_archives_lock_conflict_as_skipped(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("sys.argv", ["backup-tool", "run"])
+    monkeypatch.setattr("sys.argv", ["snup", "run"])
     job = JobConfig(
         id="documents",
         name="Documents",
@@ -107,7 +107,7 @@ def test_main_archives_lock_conflict_as_skipped(tmp_path, monkeypatch):
         source_path="/documents",
     )
     monkeypatch.setattr(
-        "backup_tool.main.load_jobs_from_config",
+        "snup.main.load_jobs_from_config",
         lambda config_path: [job],
     )
 
@@ -115,7 +115,7 @@ def test_main_archives_lock_conflict_as_skipped(tmp_path, monkeypatch):
         raise BackupAlreadyRunningError("backup already running")
 
     monkeypatch.setattr(
-        "backup_tool.main.BackupRunner",
+        "snup.main.BackupRunner",
         lambda repo_root: SimpleNamespace(
             run_job=run_job,
             repository_root_for=lambda selected_job: tmp_path / ".backup_store",
@@ -152,11 +152,11 @@ def test_status_lists_history_without_loading_job_config(tmp_path, monkeypatch, 
     RunHistory(state_dir).record(job, result)
     monkeypatch.setattr(
         "sys.argv",
-        ["backup-tool", "status", "--repo-root",
+        ["snup", "status", "--repo-root",
             str(state_dir), "--job", "documents"],
     )
     monkeypatch.setattr(
-        "backup_tool.main.load_jobs_from_config",
+        "snup.main.load_jobs_from_config",
         lambda config_path: pytest.fail("status must not load jobs.yaml"),
     )
 
@@ -209,7 +209,7 @@ def test_status_reads_histories_from_configured_job_repositories(
     )
     monkeypatch.setattr(
         "sys.argv",
-        ["backup-tool", "status", "--config",
+        ["snup", "status", "--config",
             str(config_path), "--limit", "10"],
     )
 
@@ -229,10 +229,10 @@ def test_check_reports_python_and_job_program_dependencies(
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        "sys.argv", ["backup-tool", "check", "--config", str(config_path)]
+        "sys.argv", ["snup", "check", "--config", str(config_path)]
     )
     monkeypatch.setattr(
-        "backup_tool.main.check_python_dependencies",
+        "snup.main.check_python_dependencies",
         lambda: [
             DependencyStatus("Python >=3.11", True),
             DependencyStatus("Python package PyYAML", True),
@@ -240,7 +240,7 @@ def test_check_reports_python_and_job_program_dependencies(
         ],
     )
     monkeypatch.setattr(
-        "backup_tool.main.check_program_dependencies",
+        "snup.main.check_program_dependencies",
         lambda jobs: [DependencyStatus(
             "Program rsync", True, "/usr/bin/rsync")],
     )
@@ -256,14 +256,14 @@ def test_check_exits_nonzero_for_missing_program(tmp_path, monkeypatch, capsys):
     config_path = tmp_path / "jobs.yaml"
     config_path.write_text("jobs: []\n", encoding="utf-8")
     monkeypatch.setattr(
-        "sys.argv", ["backup-tool", "check", "--config", str(config_path)]
+        "sys.argv", ["snup", "check", "--config", str(config_path)]
     )
     monkeypatch.setattr(
-        "backup_tool.main.check_python_dependencies",
+        "snup.main.check_python_dependencies",
         lambda: [DependencyStatus("Python package PyYAML", True)],
     )
     monkeypatch.setattr(
-        "backup_tool.main.check_program_dependencies",
+        "snup.main.check_program_dependencies",
         lambda jobs: [DependencyStatus("Program rsync", False)],
     )
 
@@ -277,16 +277,16 @@ def test_check_exits_nonzero_for_missing_program(tmp_path, monkeypatch, capsys):
 def test_check_can_report_missing_pyyaml_without_loading_config(
     monkeypatch, capsys
 ):
-    monkeypatch.setattr("sys.argv", ["backup-tool", "check"])
+    monkeypatch.setattr("sys.argv", ["snup", "check"])
     monkeypatch.setattr(
-        "backup_tool.main.check_python_dependencies",
+        "snup.main.check_python_dependencies",
         lambda: [
             DependencyStatus("Python package PyYAML", False),
             DependencyStatus("Python package python-dotenv", True),
         ],
     )
     monkeypatch.setattr(
-        "backup_tool.main.load_jobs_from_config",
+        "snup.main.load_jobs_from_config",
         lambda config_path: pytest.fail(
             "must not parse config without PyYAML"),
     )

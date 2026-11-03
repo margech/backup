@@ -1,6 +1,6 @@
-# backup
+# Snup
 
-Ein modularer Linux-Backup-Client als Python-Projekt mit Fokus auf Snapshot-basierte Sicherung, Retention, Remote-Quellen und pluggbaren Backends.
+Ein modularer Linux-Backup-Client mit Fokus auf Snapshot-basierte Sicherung, Retention, Remote-Quellen und pluggbaren Backends.
 
 Das Projekt ist als Architektur- und Entwicklungsbasis für ein Time-Machine-ähnliches Backup-Tool konzipiert.
 
@@ -22,19 +22,22 @@ Das Projekt ist als Architektur- und Entwicklungsbasis für ein Time-Machine-äh
 - v0.1: erster MVP mit grundlegendem Backup-Runner
 - v0.2: Snapshot-Engine, Retention und Restore
 - v0.3: SSH- und pCloud-ready Architektur mit Locking
+- v0.4: rclone-pCloud, systemd/Cron, Statushistorie pro Job und Abhängigkeitsprüfung
 
 ## Projektstruktur
 
 ```text
-backup/
-├── backup_tool/
+snup/
+├── snup/
 │   ├── __init__.py
+│   ├── dependencies.py
 │   ├── lock.py
 │   ├── main.py
 │   ├── models.py
 │   ├── notifiers.py
 │   ├── restore.py
 │   ├── retention.py
+│   ├── run_history.py
 │   ├── runner.py
 │   ├── scheduler.py
 │   └── sources/
@@ -44,12 +47,24 @@ backup/
 │       ├── pcloud.py
 │       ├── ssh.py
 │       └── sql_dump.py
+├── deploy/
+│   ├── cron/
+│   │   └── snup.crontab
+│   ├── logrotate/
+│   │   └── snup
+│   └── systemd/
+│       ├── snup.service
+│       └── snup.timer
 ├── docs/
 │   ├── architecture.md
 │   └── roadmap.md
 ├── examples/
+│   ├── .env.example
 │   └── jobs.yaml
 ├── tests/
+│   ├── test_dependencies.py
+│   ├── test_main.py
+│   ├── test_run_history.py
 │   ├── test_runner.py
 │   ├── test_sources.py
 │   └── test_storage.py
@@ -71,7 +86,7 @@ python -m pip install -r requirements.txt
 
 ## Quellen erweitern
 
-Jeder Source-Adapter liegt in einem eigenen Modul unter `backup_tool/sources/`. Die Registry in `sources/__init__.py` verknüpft `source_type` mit Moduldatei und Klassenname. Für einen neuen Typ werden daher ein Adapter-Modul, ein Registry-Eintrag und passende Tests ergänzt. Für entfernte Dateisysteme kann `source_type: ssh` mit `remote_host`, optional `remote_user` und dem Remote-`source_path` verwendet werden.
+Jeder Source-Adapter liegt in einem eigenen Modul unter `snup/sources/`. Die Registry in `sources/__init__.py` verknüpft `source_type` mit Moduldatei und Klassenname. Für einen neuen Typ werden daher ein Adapter-Modul, ein Registry-Eintrag und passende Tests ergänzt. Für entfernte Dateisysteme kann `source_type: ssh` mit `remote_host`, optional `remote_user` und dem Remote-`source_path` verwendet werden.
 
 Beispiel für einen SSH-Job:
 
@@ -98,10 +113,10 @@ Kopiere die Beispielkonfiguration ins Hauptverzeichnis. Dort werden standardmä�
 
 ```bash
 cp examples/jobs.yaml jobs.yaml
-python -m backup_tool.main list
-python -m backup_tool.main check
-python -m backup_tool.main run --job home-files
-python -m backup_tool.main restore --snapshot /var/backups/home-files/snapshots/home-files/20261031_120000 --target /tmp/restore
+python -m snup.main list
+python -m snup.main check
+python -m snup.main run --job home-files
+python -m snup.main restore --snapshot /var/backups/home-files/snapshots/home-files/20261031_120000 --target /tmp/restore
 ```
 
 Mit `--config /pfad/zur/jobs.yaml` kann eine andere Konfigurationsdatei angegeben werden.
@@ -110,7 +125,7 @@ Jeder Job kann mit `destination` sein eigenes Repository-Verzeichnis erhalten. S
 `check` prüft die Python-Laufzeitpakete und die Programme, die für die konfigurierten Quellen und Benachrichtigungen benötigt werden. Mit `--job` lässt sich die Prüfung auf einen Job begrenzen; `--config` wählt dieselbe Jobdatei wie beim Backup:
 
 ```bash
-python -m backup_tool.main check --config /etc/backup-tool/jobs.yaml --job home-files
+python -m snup.main check --config /etc/snup/jobs.yaml --job home-files
 ```
 
 Geprüft wird, ob die Programme im `PATH` auffindbar sind, nicht ob Hosts erreichbar, Zugangsdaten gültig oder Quellpfade zugreifbar sind. Für Desktop-Benachrichtigungen wird `notify-send` geprüft, wenn eine Desktop-Sitzung (`DISPLAY`) aktiv ist. Die optionale Testabhängigkeit `pytest` wird nicht benötigt, um Backups auszuführen.
@@ -138,10 +153,10 @@ chmod 600 .env
 Danach kann das Backup ohne vorheriges manuelles Exportieren gestartet werden:
 
 ```bash
-python -m backup_tool.main run
+python -m snup.main run
 ```
 
-Eine alternative Env-Datei lässt sich explizit setzen: `python -m backup_tool.main run --env-file /etc/backup-tool/backup.env`. Nach einer Installation mit `pip install -e .` kann stattdessen auch das Kommando `backup-tool` verwendet werden.
+Eine alternative Env-Datei lässt sich explizit setzen: `python -m snup.main run --env-file /etc/snup/backup.env`. Nach einer Installation mit `pip install -e .` kann stattdessen auch das Kommando `snup` verwendet werden.
 
 - `SMTP_HOST`: SMTP-Server. Ohne diese Variable wird die E-Mail still übersprungen.
 - `SMTP_USER` und `SMTP_PASSWORD`: Werden nur gemeinsam verwendet. Sind beide gesetzt, aktiviert der Notifier STARTTLS und meldet sich an.
@@ -195,47 +210,56 @@ Die CLI führt pro Aufruf einen einmaligen Backup-Lauf aus. Die Beispiele unter 
 Jeder Jobversuch wird nach Job-ID getrennt als JSON-Datensatz im Repository des Jobs gespeichert: bei gesetztem `destination` unter `<destination>/run-history/<job-id>/`, andernfalls unter `<repo-root>/run-history/<job-id>/`. Erfolgreiche, fehlgeschlagene und wegen eines bestehenden Locks übersprungene Läufe sind enthalten.
 
 ```bash
-python -m backup_tool.main status
-python -m backup_tool.main status --config /etc/backup-tool/jobs.yaml --job home-files --limit 10
+python -m snup.main status
+python -m snup.main status --config /etc/snup/jobs.yaml --job home-files --limit 10
 ```
 
 `status` liest dieselbe Job-Konfiguration wie `run`, um die einzelnen Repository-Pfade zu finden. Verwende bei einer abweichenden Konfiguration dieselbe `--config`-Datei für beide Aufrufe. `--repo-root` gilt für Jobs ohne `destination`. Das Archiv bewahrt die letzten 90 Tage auf. Dateien erhalten Modus `0600`, die History-Verzeichnisse Modus `0700`. Es werden keine Fehlertexte oder beliebigen Adapter-Metadaten archiviert; der Fehlertyp bleibt für die Diagnose erhalten. Detaillierte Prozessausgaben stehen weiterhin im systemd-Journal beziehungsweise im Cron-Log.
 
-Die Beispiele verwenden `/opt/backup-tool/.venv/bin/backup-tool`, `/etc/backup-tool/jobs.yaml`, `/etc/backup-tool/backup.env` und `/var/lib/backup-tool` als Beispielpfade. Passe diese Pfade in den Dateien unter `deploy/` an deine Installation an. Der systemd-Service erlaubt Schreibzugriffe auf `/var/lib/backup-tool` und `/var/backups`; ergänze `ReadWritePaths` in `deploy/systemd/backup-tool.service` für alle weiteren Job-Ziele.
+Die Beispiele verwenden `/opt/snup/.venv/bin/snup`, `/etc/snup/jobs.yaml`, `/etc/snup/backup.env` und `/var/lib/snup` als Beispielpfade. Passe diese Pfade in den Dateien unter `deploy/` an deine Installation an. Der systemd-Service erlaubt Schreibzugriffe auf `/var/lib/snup` und `/var/backups`; ergänze `ReadWritePaths` in `deploy/systemd/snup.service` für alle weiteren Job-Ziele.
 
 Der Dienst läuft als Systembenutzer `backup`. Lege Konfiguration und Verzeichnisse an und gib dem Benutzer Zugriff auf Quellen, Ziele und benötigte Programme:
 
 ```bash
-sudo install -d -o root -g backup -m 0750 /etc/backup-tool
-sudo install -d -o backup -g backup -m 0750 /var/lib/backup-tool /var/log/backup-tool
-sudo install -o root -g backup -m 0640 jobs.yaml /etc/backup-tool/jobs.yaml
-sudo install -o backup -g backup -m 0600 .env /etc/backup-tool/backup.env
+sudo useradd --system --user-group --create-home --home-dir /var/lib/snup --shell /usr/sbin/nologin snup
+sudo install -d -o root -g snup -m 0750 /etc/snup
+sudo install -d -o snup -g snup -m 0750 /var/lib/snup /var/log/snup
+sudo install -d -o snup -g snup -m 0750 /var/backups/home-files /var/backups/remote-db /var/backups/remote-files /var/backups/pcloud-docs
+sudo install -o root -g snup -m 0640 jobs.yaml /etc/snup/jobs.yaml
+sudo install -o snup -g snup -m 0600 .env /etc/snup/backup.env
 ```
 
-SSH-Schlüssel, `known_hosts` und rclone-Remotes müssen für denselben Benutzer `backup` eingerichtet sein. Für rclone lässt sich die Konfiguration beispielsweise mit `sudo -u backup rclone config` einrichten. Ein Login-`ssh-agent` steht einem geplanten Lauf nicht automatisch zur Verfügung.
+Falls der Benutzer `snup` bereits existiert, überspringe den `useradd`-Befehl. Für die Unit muss die CLI im angegebenen Installationspfad installiert sein. Wenn sich der Checkout unter `/opt/snup` befindet, kannst du dafür beispielsweise verwenden:
+
+```bash
+sudo python3 -m venv /opt/snup/.venv
+sudo /opt/snup/.venv/bin/python -m pip install -e /opt/snup
+```
+
+SSH-Schlüssel, `known_hosts` und rclone-Remotes müssen für denselben Benutzer `snup` eingerichtet sein. Für rclone lässt sich die Konfiguration beispielsweise mit `sudo -u snup rclone config` einrichten. Ein Login-`ssh-agent` steht einem geplanten Lauf nicht automatisch zur Verfügung.
 
 ### systemd
 
 Installiere die Unit-Dateien, lade die systemd-Konfiguration neu und teste zunächst den Dienst manuell:
 
 ```bash
-sudo install -m 0644 deploy/systemd/backup-tool.service deploy/systemd/backup-tool.timer /etc/systemd/system/
+sudo install -m 0644 deploy/systemd/snup.service deploy/systemd/snup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl start backup-tool.service
-sudo systemctl enable --now backup-tool.timer
+sudo systemctl start snup.service
+sudo systemctl enable --now snup.timer
 ```
 
-Der Timer startet täglich um 02:00 Uhr, mit bis zu 15 Minuten zufälliger Verzögerung. `Persistent=true` lässt einen verpassten Termin nach einem ausgeschalteten Rechner nachholen. Prüfe Zeitplan und Laufprotokolle mit `systemctl list-timers backup-tool.timer` und `journalctl -u backup-tool.service`. Die Service-Unit hat kein Laufzeitlimit; setze `TimeoutStartSec` auf einen passenden Maximalwert, wenn ein solcher gewünscht ist.
+Der Timer startet täglich um 02:00 Uhr, mit bis zu 15 Minuten zufälliger Verzögerung. `Persistent=true` lässt einen verpassten Termin nach einem ausgeschalteten Rechner nachholen. Prüfe Zeitplan und Laufprotokolle mit `systemctl list-timers snup.timer` und `journalctl -u snup.service`. Die Service-Unit hat kein Laufzeitlimit; setze `TimeoutStartSec` auf einen passenden Maximalwert, wenn ein solcher gewünscht ist.
 
 ### Cron
 
-Installiere Logrotation und füge den Inhalt von `deploy/cron/backup-tool.crontab` mit `sudo -u backup crontab -e` in die bestehende Crontab des Benutzers `backup` ein. Die Beispieldatei ist für eine Benutzer-Crontab gedacht und enthält keine Benutzer-Spalte. Sie verwendet `/usr/bin/flock`, damit überlappende Aufrufe übersprungen werden.
+Installiere Logrotation und füge den Inhalt von `deploy/cron/snup.crontab` mit `sudo -u snup crontab -e` in die bestehende Crontab des Benutzers `snup` ein. Die Beispieldatei ist für eine Benutzer-Crontab gedacht und enthält keine Benutzer-Spalte. Sie verwendet `/usr/bin/flock`, damit überlappende Aufrufe übersprungen werden.
 
 ```bash
-sudo install -m 0644 deploy/logrotate/backup-tool /etc/logrotate.d/backup-tool
+sudo install -m 0644 deploy/logrotate/snup /etc/logrotate.d/snup
 ```
 
-Die Cron-Ausgabe wird nach `/var/log/backup-tool/cron.log` geschrieben und wöchentlich rotiert. Stelle sicher, dass der Cron-Daemon läuft und `/usr/bin/flock` installiert ist. Cron holt verpasste Läufe nach einem ausgeschalteten Rechner nicht nach. Fehler werden vom Programm mit einem Fehler-Exit-Code gemeldet und stehen in der Logdatei; für Benachrichtigungen können die vorhandenen Notifier verwendet werden.
+Die Cron-Ausgabe wird nach `/var/log/snup/cron.log` geschrieben und wöchentlich rotiert. Stelle sicher, dass der Cron-Daemon läuft und `/usr/bin/flock` installiert ist. Cron holt verpasste Läufe nach einem ausgeschalteten Rechner nicht nach. Fehler werden vom Programm mit einem Fehler-Exit-Code gemeldet und stehen in der Logdatei; für Benachrichtigungen können die vorhandenen Notifier verwendet werden.
 
 ## Wichtige Hinweise
 

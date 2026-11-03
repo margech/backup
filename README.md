@@ -173,6 +173,7 @@ cloud_path: /Documents
 ```
 
 Die Zugangsdaten bleiben in der rclone-Konfiguration und gehören nicht in `.env` oder `jobs.yaml`. Für weitere Konten kannst du weitere Remotes einrichten und den jeweiligen Namen in `cloud_remote` eintragen.
+Der lokale Snapshot-Unterordner erhält den Namen des letzten Teils von `cloud_path` (zum Beispiel `Documents` bei `/Documents`). Wird die Cloud-Wurzel gesichert, wird stattdessen der rclone-Remote-Name verwendet.
 
 Fehlt der Empfänger `to` im Job, wird ebenfalls keine E-Mail gesendet. Sind `SMTP_USER` oder `SMTP_PASSWORD` nicht beide gesetzt, sendet der aktuelle Code ohne Authentifizierung und ohne STARTTLS. SMTP-Fehler werden abgefangen und nicht angezeigt; sie verhindern daher den Backup-Lauf nicht, sind aber auch nicht direkt sichtbar.
 

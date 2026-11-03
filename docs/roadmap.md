@@ -23,7 +23,7 @@
 
 ## v0.4 (in Arbeit)
 
-- pCloud-Zugriff über konfigurierte rclone-Remotes
+- [x] pCloud-Zugriff über konfigurierte rclone-Remotes
 - sichere Secret-Management-Architektur
 - systemd und cron-Integration
 - Status-/Log-Archiv

@@ -130,7 +130,21 @@ def test_pcloud_source_uses_configured_rclone_remote(tmp_path, monkeypatch):
         "/usr/bin/rclone",
         "sync",
         "personal:/Documents",
-        str(snapshot_dir / "cloud"),
+        str(snapshot_dir / "Documents"),
     ]
     assert metadata["cloud_remote"] == "personal"
     assert metadata["cloud_path"] == "/Documents"
+
+
+def test_pcloud_source_uses_remote_name_for_cloud_root(tmp_path, monkeypatch):
+    run = Mock(return_value=SimpleNamespace(
+        returncode=0, stderr="", stdout=""))
+    monkeypatch.setattr("backup_tool.sources.pcloud.shutil.which",
+                        lambda name: "/usr/bin/rclone")
+    monkeypatch.setattr("backup_tool.sources.pcloud.subprocess.run", run)
+    job = make_job("pcloud", cloud_remote="personal", cloud_path="/")
+    snapshot_dir = tmp_path / "snapshot"
+
+    PCloudSource().create_snapshot(job, snapshot_dir)
+
+    assert run.call_args.args[0][-1] == str(snapshot_dir / "personal")

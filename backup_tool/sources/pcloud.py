@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from pathlib import PurePosixPath
 
 from ..models import JobConfig
 from .base import SourceAdapter
@@ -19,7 +20,11 @@ class PCloudSource(SourceAdapter):
 
         remote_name = job.cloud_remote or "pcloud"
         remote_path = job.cloud_path or "/"
-        target_dir = snapshot_dir / "cloud"
+        folder_name = PurePosixPath(remote_path).name or remote_name
+        if folder_name in {".", ".."} or "/" in folder_name or "\\" in folder_name:
+            raise ValueError(
+                "pCloud snapshot folder name must be a single path component")
+        target_dir = snapshot_dir / folder_name
         target_dir.mkdir(parents=True, exist_ok=True)
 
         command = [rclone_bin, "sync",

@@ -111,7 +111,10 @@ def test_run_job_failure_removes_temporary_snapshot_and_releases_lock(
     result = BackupRunner(tmp_path).run_job(job)
 
     assert result.status == "failed"
-    assert result.metadata == {"error": "source unavailable"}
+    assert result.metadata == {
+        "error": "source unavailable",
+        "error_type": "RuntimeError",
+    }
     assert not list((tmp_path / "snapshots" / job.id).glob("*.tmp"))
     assert not (tmp_path / "backup.lock").exists()
 

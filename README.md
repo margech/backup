@@ -183,6 +183,15 @@ Desktop-Benachrichtigungen benötigen eine gesetzte Variable `DISPLAY` und das P
 
 Die CLI führt pro Aufruf einen einmaligen Backup-Lauf aus. Die Beispiele unter `deploy/` lassen diesen Aufruf entweder durch systemd oder Cron starten; aktiviere für dieselben Jobs nicht beide Varianten gleichzeitig. Ein fehlgeschlagener Job führt nach Abschluss der übrigen ausgewählten Jobs zu einem Exit-Code ungleich null.
 
+Jeder Jobversuch wird nach Job-ID getrennt als JSON-Datensatz im Repository des Jobs gespeichert: bei gesetztem `destination` unter `<destination>/run-history/<job-id>/`, andernfalls unter `<repo-root>/run-history/<job-id>/`. Erfolgreiche, fehlgeschlagene und wegen eines bestehenden Locks übersprungene Läufe sind enthalten.
+
+```bash
+python -m backup_tool.main status
+python -m backup_tool.main status --config /etc/backup-tool/jobs.yaml --job home-files --limit 10
+```
+
+`status` liest dieselbe Job-Konfiguration wie `run`, um die einzelnen Repository-Pfade zu finden. Verwende bei einer abweichenden Konfiguration dieselbe `--config`-Datei für beide Aufrufe. `--repo-root` gilt für Jobs ohne `destination`. Das Archiv bewahrt die letzten 90 Tage auf. Dateien erhalten Modus `0600`, die History-Verzeichnisse Modus `0700`. Es werden keine Fehlertexte oder beliebigen Adapter-Metadaten archiviert; der Fehlertyp bleibt für die Diagnose erhalten. Detaillierte Prozessausgaben stehen weiterhin im systemd-Journal beziehungsweise im Cron-Log.
+
 Die Beispiele verwenden `/opt/backup-tool/.venv/bin/backup-tool`, `/etc/backup-tool/jobs.yaml`, `/etc/backup-tool/backup.env` und `/var/lib/backup-tool` als Beispielpfade. Passe diese Pfade in den Dateien unter `deploy/` an deine Installation an. Der systemd-Service erlaubt Schreibzugriffe auf `/var/lib/backup-tool` und `/var/backups`; ergänze `ReadWritePaths` in `deploy/systemd/backup-tool.service` für alle weiteren Job-Ziele.
 
 Der Dienst läuft als Systembenutzer `backup`. Lege Konfiguration und Verzeichnisse an und gib dem Benutzer Zugriff auf Quellen, Ziele und benötigte Programme:

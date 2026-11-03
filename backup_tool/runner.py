@@ -13,11 +13,15 @@ from .retention import RetentionPolicy
 from .sources import create_source
 
 
+class BackupAlreadyRunningError(RuntimeError):
+    pass
+
+
 class BackupRunner:
     def __init__(self, repo_root: str | Path):
         self.repo_root = Path(repo_root)
 
-    def _repo_root_for(self, job: JobConfig) -> Path:
+    def repository_root_for(self, job: JobConfig) -> Path:
         if job.destination:
             return Path(job.destination).expanduser()
         return self.repo_root
@@ -44,10 +48,10 @@ class BackupRunner:
             temporary_link.unlink(missing_ok=True)
 
     def run_job(self, job: JobConfig) -> BackupResult:
-        repo_root = self._repo_root_for(job)
+        repo_root = self.repository_root_for(job)
         lock = BackupLock(repo_root / "backup.lock")
         if not lock.acquire():
-            raise RuntimeError(
+            raise BackupAlreadyRunningError(
                 f"Another backup for {job.id} is already running.")
 
         started = time.time()
@@ -109,7 +113,10 @@ class BackupRunner:
                 finished_at=datetime.utcnow().isoformat(timespec="seconds") + "Z",
                 duration_seconds=finished - started,
                 message=f"Backup failed for {job.name}: {exc}",
-                metadata={"error": str(exc)},
+                metadata={
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                },
             )
         finally:
             lock.release()

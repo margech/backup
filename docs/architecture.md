@@ -62,7 +62,7 @@ Für eine neue Quelle werden ein Adapter-Modul, ein Registry-Eintrag und passend
 ## Sicherheits- und Betriebsaspekte
 
 - Locking gegen parallele Backups
-- zentrale Logs / Status
+- JSON-Statushistorie pro Jobversuch im jeweiligen Job-Repository; Rohlogs bleiben bei systemd-Journal und Cron-Logrotate.
 - Secrets bleiben aus Git, Job-YAML, CLI-Argumenten, Logs und Snapshot-Metadaten heraus.
 - Secrets kommen aus Prozessumgebung oder expliziter Env-Datei; bestehende Prozessvariablen haben Vorrang.
 - Externe Secret-Dateien liegen außerhalb des Repositories und sind nur für den Backup-Benutzer lesbar.

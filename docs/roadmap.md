@@ -24,7 +24,7 @@
 ## v0.4 (in Arbeit)
 
 - [x] pCloud-Zugriff über konfigurierte rclone-Remotes
-- sichere Secret-Management-Architektur
+- [x] sichere Secret-Management-Architektur
 - systemd und cron-Integration
 - Status-/Log-Archiv
 - direkte pCloud-API-Integration zurückgestellt
@@ -35,3 +35,7 @@
 - optionales Web-Frontend oder Dashboard
 - automatisches Monitoring
 - erweiterte Retention-Strategien
+
+## Weitere zukünftige Features
+
+- technische Prüfung der Zugriffsrechte von Secret-Dateien

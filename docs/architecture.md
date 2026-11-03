@@ -63,8 +63,11 @@ Für eine neue Quelle werden ein Adapter-Modul, ein Registry-Eintrag und passend
 
 - Locking gegen parallele Backups
 - zentrale Logs / Status
-- keine Token im Git-Repo
-- Secret-Management per Env-Variablen, Secret-File oder Keyring
+- Secrets bleiben aus Git, Job-YAML, CLI-Argumenten, Logs und Snapshot-Metadaten heraus.
+- Secrets kommen aus Prozessumgebung oder expliziter Env-Datei; bestehende Prozessvariablen haben Vorrang.
+- Externe Secret-Dateien liegen außerhalb des Repositories und sind nur für den Backup-Benutzer lesbar.
+- rclone, SSH und DB-Tools verwalten ihre Credentials über ihre eigenen Mechanismen.
+- Keyring bleibt optional für spätere Anforderungen wie Multi-User-Betrieb; kein v0.4-Ziel.
 
 ## Offene Punkte
 

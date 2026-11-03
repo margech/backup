@@ -179,6 +179,46 @@ Fehlt der Empfänger `to` im Job, wird ebenfalls keine E-Mail gesendet. Sind `SM
 
 Desktop-Benachrichtigungen benötigen eine gesetzte Variable `DISPLAY` und das Programm `notify-send`. Fehlt eine der Voraussetzungen, wird die Benachrichtigung still übersprungen.
 
+## Geplante Ausführung
+
+Die CLI führt pro Aufruf einen einmaligen Backup-Lauf aus. Die Beispiele unter `deploy/` lassen diesen Aufruf entweder durch systemd oder Cron starten; aktiviere für dieselben Jobs nicht beide Varianten gleichzeitig. Ein fehlgeschlagener Job führt nach Abschluss der übrigen ausgewählten Jobs zu einem Exit-Code ungleich null.
+
+Die Beispiele verwenden `/opt/backup-tool/.venv/bin/backup-tool`, `/etc/backup-tool/jobs.yaml`, `/etc/backup-tool/backup.env` und `/var/lib/backup-tool` als Beispielpfade. Passe diese Pfade in den Dateien unter `deploy/` an deine Installation an. Der systemd-Service erlaubt Schreibzugriffe auf `/var/lib/backup-tool` und `/var/backups`; ergänze `ReadWritePaths` in `deploy/systemd/backup-tool.service` für alle weiteren Job-Ziele.
+
+Der Dienst läuft als Systembenutzer `backup`. Lege Konfiguration und Verzeichnisse an und gib dem Benutzer Zugriff auf Quellen, Ziele und benötigte Programme:
+
+```bash
+sudo install -d -o root -g backup -m 0750 /etc/backup-tool
+sudo install -d -o backup -g backup -m 0750 /var/lib/backup-tool /var/log/backup-tool
+sudo install -o root -g backup -m 0640 jobs.yaml /etc/backup-tool/jobs.yaml
+sudo install -o backup -g backup -m 0600 .env /etc/backup-tool/backup.env
+```
+
+SSH-Schlüssel, `known_hosts` und rclone-Remotes müssen für denselben Benutzer `backup` eingerichtet sein. Für rclone lässt sich die Konfiguration beispielsweise mit `sudo -u backup rclone config` einrichten. Ein Login-`ssh-agent` steht einem geplanten Lauf nicht automatisch zur Verfügung.
+
+### systemd
+
+Installiere die Unit-Dateien, lade die systemd-Konfiguration neu und teste zunächst den Dienst manuell:
+
+```bash
+sudo install -m 0644 deploy/systemd/backup-tool.service deploy/systemd/backup-tool.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start backup-tool.service
+sudo systemctl enable --now backup-tool.timer
+```
+
+Der Timer startet täglich um 02:00 Uhr, mit bis zu 15 Minuten zufälliger Verzögerung. `Persistent=true` lässt einen verpassten Termin nach einem ausgeschalteten Rechner nachholen. Prüfe Zeitplan und Laufprotokolle mit `systemctl list-timers backup-tool.timer` und `journalctl -u backup-tool.service`. Die Service-Unit hat kein Laufzeitlimit; setze `TimeoutStartSec` auf einen passenden Maximalwert, wenn ein solcher gewünscht ist.
+
+### Cron
+
+Installiere Logrotation und füge den Inhalt von `deploy/cron/backup-tool.crontab` mit `sudo -u backup crontab -e` in die bestehende Crontab des Benutzers `backup` ein. Die Beispieldatei ist für eine Benutzer-Crontab gedacht und enthält keine Benutzer-Spalte. Sie verwendet `/usr/bin/flock`, damit überlappende Aufrufe übersprungen werden.
+
+```bash
+sudo install -m 0644 deploy/logrotate/backup-tool /etc/logrotate.d/backup-tool
+```
+
+Die Cron-Ausgabe wird nach `/var/log/backup-tool/cron.log` geschrieben und wöchentlich rotiert. Stelle sicher, dass der Cron-Daemon läuft und `/usr/bin/flock` installiert ist. Cron holt verpasste Läufe nach einem ausgeschalteten Rechner nicht nach. Fehler werden vom Programm mit einem Fehler-Exit-Code gemeldet und stehen in der Logdatei; für Benachrichtigungen können die vorhandenen Notifier verwendet werden.
+
 ## Wichtige Hinweise
 
 - Für lokale Dateisystem-Backups wird `rsync` benötigt.
@@ -186,12 +226,11 @@ Desktop-Benachrichtigungen benötigen eine gesetzte Variable `DISPLAY` und das P
 - Für SQL-Dumps müssen DB-Tools wie `pg_dump`, `mysqldump` oder `sqlite3` installiert sein.
 - Für pCloud muss `rclone` installiert und das in `cloud_remote` genannte Remote konfiguriert sein.
 - Die Notifier laufen nur, wenn die Umgebung dafür geeignet ist.
-- Ein integrierter Scheduler ist noch nicht implementiert; geplante Ausführung erfolgt vorerst über systemd oder cron.
+- Ein integrierter Scheduler ist nicht implementiert; geplante Ausführung erfolgt über systemd oder cron.
 
 ## Nächste Schritte
 
 - pCloud-Account-Management pro Nutzer
 - sichere Token- und Secret-Konfiguration
-- systemd/cron-Integration
 - multi-user backup jobs
 - zentralisierter Backup-Store mit Laufzeit- und Status-Management

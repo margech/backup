@@ -72,6 +72,5 @@ Für eine neue Quelle werden ein Adapter-Modul, ein Registry-Eintrag und passend
 ## Offene Punkte
 
 - echte pCloud-Token-Handling pro Nutzer
-- systemd timer / cron integration
 - multi-user Job-Konfiguration
 - zentralisierte Restore-UI oder CLI

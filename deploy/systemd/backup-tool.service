@@ -1,0 +1,19 @@
+[Unit]
+Description=Run configured backup-tool jobs
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=backup
+Group=backup
+WorkingDirectory=/etc/backup-tool
+Environment=PATH=/opt/backup-tool/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/backup-tool/.venv/bin/backup-tool run --config /etc/backup-tool/jobs.yaml --env-file /etc/backup-tool/backup.env --repo-root /var/lib/backup-tool
+TimeoutStartSec=infinity
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/backup-tool /var/backups

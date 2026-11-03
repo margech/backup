@@ -49,9 +49,15 @@ def main() -> None:
     if not selected_jobs:
         raise SystemExit(f"No job found matching id: {args.job}")
 
+    has_failed_job = False
     for job in selected_jobs:
         result = runner.run_job(job)
         print(f"{job.id}: {result.status} -> {result.message}")
+        if result.status != "success":
+            has_failed_job = True
+
+    if has_failed_job:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

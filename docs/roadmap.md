@@ -25,9 +25,10 @@
 
 - [x] pCloud-Zugriff über konfigurierte rclone-Remotes
 - [x] sichere Secret-Management-Architektur
-- systemd und cron-Integration
+- [x] systemd und cron-Integration
 - Status-/Log-Archiv
 - direkte pCloud-API-Integration zurückgestellt
+- Prüfung, ob alle Pythonpakete und alle Linuxprogramme vorhenden sind, die für das Backup-Tool benötigt werden.
 
 ## v0.5 (geplant)
 

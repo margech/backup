@@ -27,7 +27,6 @@
 - [x] sichere Secret-Management-Architektur
 - [x] systemd und cron-Integration
 - Status-/Log-Archiv
-- direkte pCloud-API-Integration zurückgestellt
 - Prüfung, ob alle Pythonpakete und alle Linuxprogramme vorhenden sind, die für das Backup-Tool benötigt werden.
 
 ## v0.5 (geplant)
@@ -40,3 +39,4 @@
 ## Weitere zukünftige Features
 
 - technische Prüfung der Zugriffsrechte von Secret-Dateien
+- direkte pCloud-API-Integration

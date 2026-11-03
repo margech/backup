@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from backup_tool.dependencies import DependencyStatus
 from backup_tool.models import BackupResult, JobConfig
 from backup_tool.main import main
 from backup_tool.run_history import RunHistory
@@ -217,3 +218,81 @@ def test_status_reads_histories_from_configured_job_repositories(
     output = capsys.readouterr().out
     assert "documents" in output
     assert "photos" in output
+
+
+def test_check_reports_python_and_job_program_dependencies(
+    tmp_path, monkeypatch, capsys
+):
+    config_path = tmp_path / "jobs.yaml"
+    config_path.write_text(
+        "jobs:\n  - id: files\n    source_path: /files\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "sys.argv", ["backup-tool", "check", "--config", str(config_path)]
+    )
+    monkeypatch.setattr(
+        "backup_tool.main.check_python_dependencies",
+        lambda: [
+            DependencyStatus("Python >=3.11", True),
+            DependencyStatus("Python package PyYAML", True),
+            DependencyStatus("Python package python-dotenv", True),
+        ],
+    )
+    monkeypatch.setattr(
+        "backup_tool.main.check_program_dependencies",
+        lambda jobs: [DependencyStatus(
+            "Program rsync", True, "/usr/bin/rsync")],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+    assert "OK: Program rsync (/usr/bin/rsync)" in output
+    assert "All required dependencies are available." in output
+
+
+def test_check_exits_nonzero_for_missing_program(tmp_path, monkeypatch, capsys):
+    config_path = tmp_path / "jobs.yaml"
+    config_path.write_text("jobs: []\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "sys.argv", ["backup-tool", "check", "--config", str(config_path)]
+    )
+    monkeypatch.setattr(
+        "backup_tool.main.check_python_dependencies",
+        lambda: [DependencyStatus("Python package PyYAML", True)],
+    )
+    monkeypatch.setattr(
+        "backup_tool.main.check_program_dependencies",
+        lambda jobs: [DependencyStatus("Program rsync", False)],
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 1
+    assert "MISSING: Program rsync" in capsys.readouterr().out
+
+
+def test_check_can_report_missing_pyyaml_without_loading_config(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr("sys.argv", ["backup-tool", "check"])
+    monkeypatch.setattr(
+        "backup_tool.main.check_python_dependencies",
+        lambda: [
+            DependencyStatus("Python package PyYAML", False),
+            DependencyStatus("Python package python-dotenv", True),
+        ],
+    )
+    monkeypatch.setattr(
+        "backup_tool.main.load_jobs_from_config",
+        lambda config_path: pytest.fail(
+            "must not parse config without PyYAML"),
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 1
+    assert "MISSING: Python package PyYAML" in capsys.readouterr().out

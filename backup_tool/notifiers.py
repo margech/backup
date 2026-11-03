@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import smtplib
 import subprocess
 from email.message import EmailMessage
@@ -50,14 +51,13 @@ class DesktopNotifier:
         if not os.getenv("DISPLAY"):
             return
 
-        notify_bin = subprocess.run(
-            ["which", "notify-send"], capture_output=True, text=True)
-        if notify_bin.returncode != 0:
+        notify_bin = shutil.which("notify-send")
+        if not notify_bin:
             return
 
         title = self.config.get("title") or "Backup status"
         message = event.get("message", "Backup finished")
-        subprocess.run(["notify-send", title, message], check=False)
+        subprocess.run([notify_bin, title, message], check=False)
 
 
 def build_notifier(notifier_config: dict):

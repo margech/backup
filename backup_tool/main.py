@@ -6,8 +6,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from time import monotonic
 
-from dotenv import load_dotenv
-
+from .dependencies import (
+    check_program_dependencies,
+    check_python_dependencies,
+)
 from .models import BackupResult, JobConfig
 from .restore import restore_snapshot
 from .run_history import RunHistory
@@ -21,12 +23,13 @@ from .runner import (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Modular backup tool")
     parser.add_argument("action", choices=[
-                        "run", "list", "restore", "status"], help="Action to execute")
+                        "run", "list", "restore", "status", "check"], help="Action to execute")
     parser.add_argument("--config", default="jobs.yaml",
                         help="Path to the YAML job definition file (default: jobs.yaml)")
     parser.add_argument("--env-file", default=".env",
                         help="Path to an environment file (default: .env)")
-    parser.add_argument("--job", help="Optional job id to run or filter")
+    parser.add_argument(
+        "--job", help="Optional job id to run, filter, or check")
     parser.add_argument("--limit", type=int, default=20,
                         help="Maximum number of runs shown by status (default: 20)")
     parser.add_argument("--repo-root", default="./.backup_store",
@@ -39,6 +42,50 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    if args.action == "check":
+        checks = check_python_dependencies()
+        for check in checks:
+            state = "OK" if check.available else "MISSING"
+            location = f" ({check.location})" if check.location else ""
+            print(f"{state}: {check.name}{location}")
+
+        yaml_available = any(
+            check.name == "Python package PyYAML" and check.available
+            for check in checks
+        )
+        if not yaml_available:
+            print(
+                "Cannot inspect job-specific programs without PyYAML.",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+
+        try:
+            jobs = load_jobs_from_config(args.config)
+        except Exception as exc:
+            print(
+                f"Cannot inspect job configuration ({type(exc).__name__}).",
+                file=sys.stderr,
+            )
+            raise SystemExit(1) from exc
+
+        selected_jobs = jobs if not args.job else [
+            job for job in jobs if job.id == args.job]
+        if args.job and not selected_jobs:
+            print(f"No job found matching id: {args.job}", file=sys.stderr)
+            raise SystemExit(1)
+
+        program_checks = check_program_dependencies(selected_jobs)
+        for check in program_checks:
+            state = "OK" if check.available else "MISSING"
+            location = f" ({check.location})" if check.location else ""
+            print(f"{state}: {check.name}{location}")
+
+        if any(not check.available for check in checks + program_checks):
+            raise SystemExit(1)
+        print("All required dependencies are available.")
+        return
 
     if args.action == "status":
         if args.limit < 1:
@@ -82,6 +129,8 @@ def main() -> None:
                 f"{duration:9.1f}s"
             )
         return
+
+    from dotenv import load_dotenv
 
     load_dotenv(args.env_file)
     jobs = load_jobs_from_config(args.config)

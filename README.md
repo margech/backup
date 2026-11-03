@@ -99,12 +99,21 @@ Kopiere die Beispielkonfiguration ins Hauptverzeichnis. Dort werden standardmä�
 ```bash
 cp examples/jobs.yaml jobs.yaml
 python -m backup_tool.main list
+python -m backup_tool.main check
 python -m backup_tool.main run --job home-files
 python -m backup_tool.main restore --snapshot /var/backups/home-files/snapshots/home-files/20261031_120000 --target /tmp/restore
 ```
 
 Mit `--config /pfad/zur/jobs.yaml` kann eine andere Konfigurationsdatei angegeben werden.
 Jeder Job kann mit `destination` sein eigenes Repository-Verzeichnis erhalten. Snapshots liegen darunter unter `snapshots/<job-id>/<zeitstempel>`. Der relative Symlink `snapshots/<job-id>/current` zeigt nach einem erfolgreichen Lauf auf den neuesten Snapshot. Fehlt `destination`, wird `--repo-root` verwendet (Standard: `./.backup_store`). Relative Job-Ziele beziehen sich auf das aktuelle Arbeitsverzeichnis.
+
+`check` prüft die Python-Laufzeitpakete und die Programme, die für die konfigurierten Quellen und Benachrichtigungen benötigt werden. Mit `--job` lässt sich die Prüfung auf einen Job begrenzen; `--config` wählt dieselbe Jobdatei wie beim Backup:
+
+```bash
+python -m backup_tool.main check --config /etc/backup-tool/jobs.yaml --job home-files
+```
+
+Geprüft wird, ob die Programme im `PATH` auffindbar sind, nicht ob Hosts erreichbar, Zugangsdaten gültig oder Quellpfade zugreifbar sind. Für Desktop-Benachrichtigungen wird `notify-send` geprüft, wenn eine Desktop-Sitzung (`DISPLAY`) aktiv ist. Die optionale Testabhängigkeit `pytest` wird nicht benötigt, um Backups auszuführen.
 
 ## Tests
 

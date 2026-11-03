@@ -27,7 +27,7 @@
 - [x] sichere Secret-Management-Architektur
 - [x] systemd und cron-Integration
 - [x] Statushistorie pro Lauf mit CLI-Abfrage und Retention
-- Prüfung, ob alle Pythonpakete und alle Linuxprogramme vorhenden sind, die für das Backup-Tool benötigt werden.
+- [x] Prüfung der Python-Laufzeitpakete und jobbezogenen Linuxprogramme
 
 ## v0.5 (geplant)
 
@@ -40,3 +40,4 @@
 
 - technische Prüfung der Zugriffsrechte von Secret-Dateien
 - direkte pCloud-API-Integration
+- Installationsroutine, welche die Systemprüfung macht und vordefinierte Pfade dem effektiven INstallationsort anpasst.
